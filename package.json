@@ -4,5 +4,14 @@
     "acorn-loose": "^8.5.2",
     "archiver": "^7.0.1",
     "javascript-obfuscator": "^4.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.8.0",
+    "dotenv": "^17.2.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "which": "^5.0.0",
+    "yaml": "^2.8.1"
   }
 }
