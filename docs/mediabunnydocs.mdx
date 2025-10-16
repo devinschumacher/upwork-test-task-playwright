@@ -1,0 +1,2569 @@
+# Mediabunny Documentation
+
+## Introduction
+
+Mediabunny is a JavaScript library for reading, writing, and converting media files (like MP4 or WebM), directly in the browser. It aims to be a complete toolkit for high-performance media operations on the web. It's written from scratch in pure TypeScript, has zero dependencies, and is extremely tree-shakable, meaning you only include what you use. It provides a web-native alternative for media processing.
+
+## Features
+
+- Reading metadata from media files
+- Extracting media data from media files
+- Creating new media files
+- Converting media files
+- Hardware-accelerated decoding & encoding (via the WebCodecs API)
+- Support for multiple video, audio and subtitle tracks
+- Read & write support for many container formats (.mp4, .mov, .webm, .mkv, .mp3, .wav, .ogg), including variations such as MP4 with Fast Start, fragmented MP4, or streamable Matroska
+- Support for 25 different codecs
+- Lazy, optimized, on-demand file reading
+- Input and output streaming, arbitrary file size support
+- File location independence (memory, disk, network, ...)
+- Utilities for compression, resizing, rotation, resampling, trimming
+- Transmuxing and transcoding
+- Microsecond-accurate reading and writing precision
+- Efficient seeking through time
+- Pipelined design for efficient hardware usage and automatic backpressure
+- Custom encoder & decoder support for polyfilling
+- Low- & high-level abstractions for different use cases
+- Performant everything
+- Node.js support
+
+## Use Cases
+
+Mediabunny is a general-purpose toolkit and can be used in infinitely many ways. Here are some ideas:
+
+- File conversion & compression
+- Displaying file metadata (duration, dimensions, ...)
+- Extracting thumbnails
+- Creating videos in the browser
+- Building a video editor
+- Live recording & streaming
+- Efficient, sample-accurate playback of large files via the Web Audio API
+
+## Installation
+
+Install Mediabunny using your favorite package manager:
+
+```bash
+npm install mediabunny
+```
+
+<div className="info">
+  Requires any JavaScript environment that can run ECMAScript 2021 or later.
+  Mediabunny is expected to be run in modern browsers. For types, TypeScript 5.7
+  or later is required.
+</div>
+
+Then, simply import it:
+
+```javascript
+import { ... } from 'mediabunny'; // ESM
+const { ... } = require('mediabunny'); // or CommonJS
+```
+
+ESM is preferred because it gives you tree shaking.
+
+You can also include the library using a script tag:
+
+```html
+<script src="mediabunny.cjs"></script>
+```
+
+This will add a Mediabunny object to the global scope. You can provide types for this global using mediabunny.d.ts.
+
+Use the `_.cjs` builds for normal script tag inclusion, or the `_.mjs` builds for script tags with `type="module"` or direct imports via ESM.
+
+## Quick Start
+
+### Read file metadata
+
+```javascript
+import { Input, ALL_FORMATS, BlobSource } from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS, // Supporting all file formats
+  source: new BlobSource(file), // Assuming a File instance
+});
+
+const duration = await input.computeDuration(); // in seconds
+const allTracks = await input.getTracks(); // List of all tracks
+
+// Extract video metadata
+const videoTrack = await input.getPrimaryVideoTrack();
+if (videoTrack) {
+  videoTrack.displayWidth; // in pixels
+  videoTrack.displayHeight; // in pixels
+  videoTrack.rotation; // in degrees clockwise
+
+  // Estimate frame rate (FPS)
+  const packetStats = await videoTrack.computePacketStats(100);
+  const averageFrameRate = packetStats.averagePacketRate;
+}
+
+// Extract audio metadata
+const audioTrack = await input.getPrimaryAudioTrack();
+if (audioTrack) {
+  audioTrack.numberOfChannels;
+  audioTrack.sampleRate; // in Hz
+}
+```
+
+<div className="info">
+  You can read from more than just File instances - check out Input sources for
+  more.
+</div>
+
+### Read media data
+
+```javascript
+import {
+  Input,
+  ALL_FORMATS,
+  BlobSource,
+  VideoSampleSink,
+  AudioSampleSink,
+} from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS,
+  source: new BlobSource(file),
+});
+
+// Read video frames
+const videoTrack = await input.getPrimaryVideoTrack();
+if (videoTrack) {
+  const decodable = await videoTrack.canDecode();
+  if (decodable) {
+    const sink = new VideoSampleSink(videoTrack);
+
+    // Get the video frame at timestamp 5s
+    const videoSample = await sink.getSample(5);
+    videoSample.timestamp; // in seconds
+    videoSample.duration; // in seconds
+
+    // Draw the frame to a canvas
+    videoSample.draw(ctx, 0, 0);
+
+    // Loop over all frames in the first 30s of video
+    for await (const sample of sink.samples(0, 30)) {
+      // ...
+    }
+  }
+}
+
+// Read audio chunks
+const audioTrack = await input.getPrimaryAudioTrack();
+if (audioTrack) {
+  const decodable = await audioTrack.canDecode();
+  if (decodable) {
+    const sink = new AudioSampleSink(audioTrack);
+
+    // Get audio chunk at timestamp 5s; a short chunk of audio
+    const audioSample = await sink.getSample(5);
+    audioSample.timestamp; // in seconds
+    audioSample.duration; // in seconds
+    audioSample.numberOfFrames;
+
+    // Convert to AudioBuffer for use with the Web Audio API
+    const audioBuffer = audioSample.toAudioBuffer();
+
+    // Loop over all samples in the first 30s of audio
+    for await (const sample of sink.samples(0, 30)) {
+      // ...
+    }
+  }
+}
+```
+
+### Extract video thumbnails
+
+```javascript
+import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS,
+  source: new BlobSource(file),
+});
+
+const videoTrack = await input.getPrimaryVideoTrack();
+if (videoTrack) {
+  const decodable = await videoTrack.canDecode();
+  if (decodable) {
+    const sink = new CanvasSink(videoTrack, {
+      width: 320, // Automatically resize the thumbnails
+    });
+
+    // Get the thumbnail at timestamp 10s
+    const result = await sink.getCanvas(10);
+    result.canvas; // HTMLCanvasElement | OffscreenCanvas
+    result.timestamp; // in seconds
+    result.duration; // in seconds
+
+    // Generate five equally-spaced thumbnails through the video
+    const startTimestamp = await videoTrack.getFirstTimestamp();
+    const endTimestamp = await videoTrack.computeDuration();
+    const timestamps = [0, 0.2, 0.4, 0.6, 0.8].map(
+      (t) => startTimestamp + t * (endTimestamp - startTimestamp)
+    );
+
+    // Loop over these timestamps
+    for await (const result of sink.canvasesAtTimestamps(timestamps)) {
+      // ...
+    }
+  }
+}
+```
+
+### Extract encoded packets
+
+```javascript
+import { Input, ALL_FORMATS, BlobSource, EncodedPacketSink } from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS,
+  source: new BlobSource(file),
+});
+
+const videoTrack = await input.getPrimaryVideoTrack();
+if (videoTrack) {
+  const sink = new EncodedPacketSink(videoTrack);
+
+  // Get packet for timestamp 10s
+  const packet = await sink.getPacket(10);
+  packet.data; // Uint8Array
+  packet.type; // 'key' | 'delta'
+  packet.timestamp; // in seconds
+  packet.duration; // in seconds
+
+  // Get the closest key packet to timestamp 10s
+  const keyPacket = await sink.getKeyPacket(10);
+
+  // Get the following packet
+  const nextPacket = await sink.getNextPacket(keyPacket);
+
+  // Set up a manual decoder
+  const decoderConfig = await videoTrack.getDecoderConfig();
+  const videoDecoder = new VideoDecoder({
+    output: console.log,
+    error: console.error,
+  });
+  videoDecoder.configure(decoderConfig);
+
+  // Loop over all packets in decode order
+  for await (const packet of sink.packets()) {
+    videoDecoder.decode(packet.toEncodedVideoChunk());
+  }
+
+  await videoDecoder.flush();
+}
+```
+
+### Create new media files
+
+```javascript
+import {
+  Output,
+  BufferTarget,
+  Mp4OutputFormat,
+  CanvasSource,
+  AudioBufferSource,
+  QUALITY_HIGH,
+} from "mediabunny";
+
+// An Output represents a new media file
+const output = new Output({
+  format: new Mp4OutputFormat(), // The format of the file
+  target: new BufferTarget(), // Where to write the file (here, to memory)
+});
+
+// Example: add a video track driven by a canvas
+const videoSource = new CanvasSource(canvas, {
+  codec: 'avc',
+  bitrate: QUALITY_HIGH,
+});
+output.addVideoTrack(videoSource);
+
+// Example: add an audio track driven by AudioBuffers
+const audioSource = new AudioBufferSource({
+  codec: 'aac',
+  bitrate: QUALITY_HIGH,
+});
+output.addAudioTrack(audioSource);
+
+await output.start();
+
+// Add some video frames
+for (let frame = 0; ...) {
+  await videoSource.add(frame / 30, 1 / 30);
+}
+
+// Add some audio data
+await audioSource.add(audioBuffer1);
+await audioSource.add(audioBuffer2);
+
+await output.finalize();
+
+const buffer = output.target.buffer; // ArrayBuffer containing the final MP4 file
+```
+
+### Write directly to disk
+
+```javascript
+import { Output, StreamTarget } from "mediabunny";
+
+// File System API
+const handle = await window.showSaveFilePicker();
+const writableStream = await handle.createWritable();
+
+const output = new Output({
+  // `chunked: true` to batch disk operations
+  target: new StreamTarget(writableStream, { chunked: true }),
+  // ...
+});
+
+// ...
+
+await output.finalize();
+
+// The file has been fully written to disk
+```
+
+### Stream over the network
+
+```javascript
+import {
+  Output,
+  StreamTarget,
+  StreamTargetChunk,
+  Mp4OutputFormat,
+} from "mediabunny";
+
+const { writable, readable } = new TransformStream<StreamTargetChunk, Uint8Array>({
+  transform: (chunk, controller) => controller.enqueue(chunk.data),
+});
+
+const output = new Output({
+  target: new StreamTarget(writable),
+  // We must use an append-only format here, such as fragmented MP4
+  format: new Mp4OutputFormat({ fastStart: 'fragmented' }),
+});
+
+const uploadComplete = fetch('https://example.com/upload', {
+  method: 'POST',
+  body: readable,
+  duplex: 'half',
+  headers: {
+    'Content-Type': output.format.mimeType,
+  },
+});
+
+await output.start();
+
+// ...
+
+await output.finalize();
+await uploadComplete;
+```
+
+<div className="info">
+  This code automatically handles the backpressure applied by a slow network.
+</div>
+
+### Record live media
+
+```javascript
+import {
+  Output,
+  BufferTarget,
+  WebMOutputFormat,
+  MediaStreamVideoTrackSource,
+  MediaStreamAudioTrackSource,
+  QUALITY_MEDIUM,
+} from "mediabunny";
+
+const userMedia = await navigator.mediaDevices.getUserMedia({
+  video: true,
+  audio: true,
+});
+const videoTrack = userMedia.getVideoTracks()[0];
+const audioTrack = userMedia.getAudioTracks()[0];
+
+const output = new Output({
+  format: new WebMOutputFormat(),
+  target: new BufferTarget(),
+});
+
+if (videoTrack) {
+  const source = new MediaStreamVideoTrackSource(videoTrack, {
+    codec: "vp9",
+    bitrate: QUALITY_MEDIUM,
+  });
+  output.addVideoTrack(source);
+}
+
+if (audioTrack) {
+  const source = new MediaStreamAudioTrackSource(audioTrack, {
+    codec: "opus",
+    bitrate: QUALITY_MEDIUM,
+  });
+  output.addAudioTrack(source);
+}
+
+await output.start();
+
+// Wait...
+
+await output.finalize();
+```
+
+### Check encoding support
+
+```javascript
+import {
+  MovOutputFormat,
+  getFirstEncodableVideoCodec,
+  getFirstEncodableAudioCodec,
+  getEncodableVideoCodecs,
+  getEncodableAudioCodecs,
+} from "mediabunny";
+
+const outputFormat = new MovOutputFormat();
+
+// Find the best supported codec for the given container format
+const bestVideoCodec = await getFirstEncodableVideoCodec(
+  outputFormat.getSupportedVideoCodecs(),
+  // Optionally, constrained by these parameters:
+  { width: 1920, height: 1080 }
+);
+const bestAudioCodec = await getFirstEncodableAudioCodec(
+  outputFormat.getSupportedAudioCodecs()
+);
+
+// Find all supported codecs
+const supportedVideoCodecs = await getEncodableVideoCodecs();
+const supportedAudioCodecs = await getEncodableAudioCodecs();
+```
+
+### Convert files
+
+```javascript
+import {
+  Input,
+  Output,
+  Conversion,
+  ALL_FORMATS,
+  BlobSource,
+  Mp4OutputFormat,
+} from "mediabunny";
+
+// Check the above snippets for more examples of Input and Output
+const input = new Input({
+  formats: ALL_FORMATS,
+  source: new BlobSource(file),
+});
+const output = new Output({
+  format: new Mp4OutputFormat(),
+  target: new BufferTarget(),
+});
+
+const conversion = await Conversion.init({ input, output });
+conversion.discardedTracks; // List of tracks that won't make it into the output
+
+conversion.onProgress = (progress) => {
+  progress; // Number between 0 and 1, inclusive
+};
+
+await conversion.execute();
+// Conversion is complete
+
+const buffer = output.target.buffer; // ArrayBuffer containing the final MP4 file
+```
+
+<div className="info">
+  This code will automatically transmux (copy media data) when possible, and
+  transcode (re-encode media data) when necessary.
+</div>
+
+### Extract audio
+
+```javascript
+import { Input, Output, Conversion, WavOutputFormat } from "mediabunny";
+
+const input = new Input(...);
+const output = new Output({
+  // Write to a .wav file, keeping only the audio track
+  format: new WavOutputFormat(),
+  // ...
+});
+
+const conversion = await Conversion.init({
+  input,
+  output,
+  audio: {
+    sampleRate: 16000, // Resample to 16 kHz
+  },
+});
+await conversion.execute();
+// Conversion is complete
+```
+
+### Compress media
+
+```javascript
+import { Input, Output, Conversion, QUALITY_LOW } from "mediabunny";
+
+const input = new Input(...);
+const output = new Output(...);
+
+const conversion = await Conversion.init({
+  input,
+  output,
+  video: {
+    width: 480,
+    bitrate: QUALITY_LOW,
+  },
+  audio: {
+    numberOfChannels: 1,
+    bitrate: QUALITY_LOW,
+  },
+  trim: {
+    // Let's keep only the first 60 seconds
+    start: 0,
+    end: 60,
+  },
+});
+
+await conversion.execute();
+// Conversion is complete
+```
+
+## Input Formats
+
+Mediabunny supports a wide variety of commonly used container formats for reading input files.
+
+### Input format properties
+
+```javascript
+inputFormat.name; // => 'MP4'
+inputFormat.mimeType; // => 'video/mp4'
+```
+
+If you want a file's full MIME type, which depends on track codecs, use `getMimeType` on Input instead.
+
+### Input format singletons
+
+```javascript
+import {
+  MP4, // MP4 input format singleton
+  QTFF, // QuickTime File Format input format singleton
+  MATROSKA, // Matroska input format singleton
+  WEBM, // WebM input format singleton
+  MP3, // MP3 input format singleton
+  WAVE, // WAVE input format singleton
+  OGG, // Ogg input format singleton
+} from "mediabunny";
+```
+
+Use these singletons when creating an input:
+
+```javascript
+import { Input, MP3, WAVE, OGG } from "mediabunny";
+
+const input = new Input({
+  formats: [MP3, WAVE, OGG],
+  // ...
+});
+```
+
+Check the actual format of an Input:
+
+```javascript
+import { MP3 } from "mediabunny";
+
+const isMp3 = (await input.getFormat()) === MP3;
+```
+
+Use `ALL_FORMATS` to support all formats:
+
+```javascript
+import { Input, ALL_FORMATS } from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS,
+  // ...
+});
+```
+
+<div className="info">
+  Using ALL_FORMATS means demuxers for all formats must be included in the
+  bundle, which can increase the bundle size significantly. Use it only if you
+  need to support all formats.
+</div>
+
+### Input format class hierarchy
+
+```
+InputFormat (abstract)
+├── IsobmffInputFormat (abstract)
+│   ├── Mp4InputFormat
+│   └── QuickTimeInputFormat
+├── MatroskaInputFormat
+├── WebMInputFormat
+├── Mp3InputFormat
+├── WaveInputFormat
+└── OggInputFormat
+```
+
+You can perform input format checks using `instanceof`:
+
+```javascript
+import { Mp3InputFormat } from "mediabunny";
+
+// Check if the file is MP3:
+(await input.getFormat()) instanceof Mp3InputFormat;
+
+// Check if the file is Matroska (MKV + WebM):
+(await input.getFormat()) instanceof MatroskaInputFormat;
+
+// Check if the file is MP4 or QuickTime:
+(await input.getFormat()) instanceof IsobmffInputFormat;
+```
+
+<div className="info">
+  Well, actually 🤓☝️, the QuickTime File Format is technically not an instance
+  of the ISO Base Media File Format (ISOBMFF) - instead, ISOBMFF is a standard
+  originally inspired by QTFF. However, as the two are extremely similar and are
+  used in the same way, we consider QTFF an instance of IsobmffInputFormat for
+  convenience.
+</div>
+
+## Reading Media Files
+
+### Creating a new input
+
+Reading media files in Mediabunny revolves around a central class, `Input`, from which all reading operations begin. One instance of Input represents one media file that we want to read.
+
+```javascript
+import { Input, ALL_FORMATS, BlobSource } from "mediabunny";
+
+const input = new Input({
+  formats: ALL_FORMATS,
+  source: new BlobSource(file),
+});
+```
+
+- `source` specifies where the Input reads data from
+- `formats` specifies the list of formats that the Input should support
+
+<div className="info">
+  Simply creating an instance of Input will perform zero reads and is
+  practically free. The file will only be read once data is requested.
+</div>
+
+### Reading file metadata
+
+```javascript
+await input.getFormat(); // => Mp4InputFormat
+await input.getMimeType(); // => 'video/mp4; codecs="avc1.42c032, mp4a.40.2"'
+await input.computeDuration(); // => 1905.4615
+```
+
+### Reading track metadata
+
+```javascript
+await input.getTracks(); // => InputTrack[]
+await input.getVideoTracks(); // => InputVideoTrack[]
+await input.getAudioTracks(); // => InputAudioTrack[]
+await input.getPrimaryVideoTrack(); // => InputVideoTrack | null
+await input.getPrimaryAudioTrack(); // => InputAudioTrack | null
+```
+
+<div className="info">
+  Subtitle tracks are currently not supported for reading.
+</div>
+
+### Common track metadata
+
+```javascript
+// Get a unique ID for this track in the input file:
+track.id; // => number
+
+// Check the track's type:
+track.type; // => 'video' | 'audio' | 'subtitle';
+
+// Alternatively, use these type predicate methods:
+track.isVideoTrack(); // => boolean
+track.isAudioTrack(); // => boolean
+
+// Retrieve the track's language as an ISO 639-2/T language code.
+// Resolves to 'und' (undetermined) if the language isn't known.
+track.languageCode; // => string
+```
+
+### Codec information
+
+```javascript
+track.codec; // => MediaCodec | null
+await track.getCodecParameterString(); // => 'avc1.42001f'
+await track.canDecode(); // => boolean
+```
+
+<div className="info">This check also takes custom decoders into account.</div>
+
+### Track timing info
+
+```javascript
+await track.computeDuration(); // => 1902.4615
+await track.getFirstTimestamp(); // => 0.041666666666666664
+track.timeResolution; // => 24
+```
+
+<div className="warning">
+  A track's start timestamp does NOT need to be 0. It is typically close to
+  zero, but it may be slightly positive, or even slightly negative.
+</div>
+
+### Packet statistics
+
+```javascript
+await track.computePacketStats(); // => PacketStats
+
+type PacketStats = {
+  // The total number of packets.
+  packetCount: number,
+  // The average number of packets per second.
+  // For video tracks, this will equal the average frame rate (FPS).
+  averagePacketRate: number,
+  // The average number of bits per second.
+  averageBitrate: number,
+};
+```
+
+To speed up computation, you can compute aggregate statistics for only a subset of packets:
+
+```javascript
+await track.computePacketStats(50);
+```
+
+### Video track metadata
+
+```javascript
+// Get the raw pixel dimensions of the track's coded samples, before rotation:
+videoTrack.codedWidth; // => number
+videoTrack.codedHeight; // => number
+
+// Get the displayed pixel dimensions of the track's samples, after rotation:
+videoTrack.displayWidth; // => number
+videoTrack.displayHeight; // => number
+
+// Get the clockwise rotation in degrees by which the
+// track's frames should be rotated:
+videoTrack.rotation; // => 0 | 90 | 180 | 270
+```
+
+To compute a video track's average frame rate (FPS):
+
+```javascript
+const stats = await videoTrack.computePacketStats(100);
+const frameRate = stats.averagePacketRate; // Approximate, but often exact
+```
+
+Additional video track methods:
+
+```javascript
+await videoTrack.getDecoderConfig(); // => VideoDecoderConfig | null
+await videoTrack.getColorSpace(); // => VideoColorSpaceInit
+await videoTrack.hasHighDynamicRange(); // => boolean
+```
+
+### Audio track metadata
+
+```javascript
+// Get the number of audio channels:
+audioTrack.numberOfChannels; // => number
+
+// Get the audio sample rate in hertz:
+audioTrack.sampleRate; // => number
+```
+
+Audio track decoder configuration:
+
+```javascript
+await audioTrack.getDecoderConfig(); // => AudioDecoderConfig | null
+```
+
+## Input Sources
+
+The input source determines where the Input reads data from.
+
+All sources have an `onread` callback property:
+
+```javascript
+source.onread = (start, end) => {
+  console.log(`Reading byte range [${start}, ${end})`);
+};
+```
+
+### BufferSource
+
+```javascript
+import { BufferSource } from "mediabunny";
+
+// You can construct a BufferSource directly from ArrayBuffer:
+const source = new BufferSource(arrayBuffer);
+
+// Or also from a Uint8Array:
+const source = new BufferSource(uint8Array);
+```
+
+This source is the fastest but requires the entire input file to be held in memory.
+
+### BlobSource
+
+```javascript
+import { BlobSource } from "mediabunny";
+
+fileInput.addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  const source = new BlobSource(file);
+});
+```
+
+This source is backed by an underlying Blob object. Since File extends Blob, this source is perfect for reading data directly from disk.
+
+### UrlSource (beta)
+
+<div className="warning">
+  This is a beta feature. UrlSource tends to make tons of requests and is
+  potentially slow. This is something that will be fixed in the near future.
+</div>
+
+```javascript
+import { UrlSource } from "mediabunny";
+
+const source = new UrlSource("https://example.com/bigbuckbunny.mp4");
+```
+
+With options:
+
+```javascript
+const source = new UrlSource("https://example.com/bigbuckbunny.mp4", {
+  requestInit: {
+    headers: {
+      "X-Custom-Header": "my-value",
+    },
+  },
+  getRetryDelay: (previousAttempts) => Math.min(2 ** previousAttempts, 16),
+});
+```
+
+### StreamSource
+
+```javascript
+import { StreamSource } from "mediabunny";
+import { open } from "node:fs/promises";
+
+const fileHandle = await open("bigbuckbunny.mp4", "r");
+
+const source = new StreamSource({
+  read: async (start, end) => {
+    const buffer = Buffer.alloc(end - start);
+    await fileHandle.read(buffer, 0, end - start, start);
+    return buffer;
+  },
+  getSize: async () => {
+    const { size } = await fileHandle.stat();
+    return size;
+  },
+});
+```
+
+## Media Sinks
+
+Media sinks offer ways to extract media data from an InputTrack. Different media sinks provide different levels of abstraction and cater to different use cases.
+
+### General usage
+
+```javascript
+const track = await input.getPrimaryVideoTrack();
+const sink = new FooSink(track);
+```
+
+Constructing the sink is virtually free and does not perform any media data reads.
+
+### Async iterators
+
+Media sinks make heavy use of async iterators:
+
+```javascript
+for await (const foo of sink.foos()) {
+  console.log(foo.timestamp);
+}
+
+// Loop only over the first 5 foos
+let count = 0;
+for await (const foo of sink.foos()) {
+  console.log(foo.timestamp);
+  if (++count === 5) break;
+}
+```
+
+When manually using async iterators:
+
+```javascript
+const foos = sink.foos();
+
+const foo1Result = await foos.next();
+const foo2Result = await foos.next();
+
+// Make sure to call return when done:
+await foos.return();
+```
+
+### EncodedPacketSink
+
+This sink can be used to extract raw, encoded packets from media files:
+
+```javascript
+import { EncodedPacketSink } from "mediabunny";
+
+const sink = new EncodedPacketSink(track);
+```
+
+#### Single packet retrieval
+
+```javascript
+await sink.getPacket(5); // => EncodedPacket | null
+await sink.getKeyPacket(5); // => EncodedPacket | null
+await sink.getFirstPacket(); // => EncodedPacket | null
+await sink.getPacket(Infinity); // => EncodedPacket | null (last packet)
+```
+
+#### Packet navigation
+
+```javascript
+await sink.getNextPacket(packet); // => EncodedPacket | null
+await sink.getNextKeyPacket(packet); // => EncodedPacket | null
+```
+
+#### Packet iteration
+
+```javascript
+for await (const packet of sink.packets()) {
+  // ...
+}
+
+// With packet range:
+const start = await sink.getPacket(5);
+const end = await sink.getPacket(10, { metadataOnly: true });
+
+for await (const packet of sink.packets(start, end)) {
+  // ...
+}
+```
+
+#### Verifying key packets
+
+```javascript
+await sink.getPacket(5, { verifyKeyPackets: true });
+await sink.getKeyPacket(10, { verifyKeyPackets: true });
+```
+
+#### Metadata-only packet retrieval
+
+```javascript
+const packet = await sink.getPacket(5, { metadataOnly: true });
+
+packet.isMetadataOnly; // => true
+packet.data; // => Uint8Array([])
+```
+
+### VideoSampleSink
+
+Use this sink to extract decoded video samples (frames) from a video track:
+
+```javascript
+import { VideoSampleSink } from "mediabunny";
+
+const sink = new VideoSampleSink(videoTrack);
+```
+
+#### Single retrieval
+
+```javascript
+await sink.getSample(5);
+await sink.getSample(await videoTrack.getFirstTimestamp());
+await sink.getSample(Infinity);
+```
+
+#### Range iteration
+
+```javascript
+// Iterate over all samples:
+for await (const sample of sink.samples()) {
+  console.log("Sample:", sample);
+  sample.close();
+}
+
+// Iterate over all samples in a specific time range:
+for await (const sample of sink.samples(5, 10)) {
+  // ...
+  sample.close();
+}
+```
+
+#### Sparse iteration
+
+```javascript
+for await (const sample of sink.samplesAtTimestamps([0, 1, 2, 3, 4, 5])) {
+  // `sample` is either VideoSample or null
+  sample.close();
+}
+
+// Any timestamp sequence is allowed:
+sink.samplesAtTimestamps([1, 2, 3]);
+sink.samplesAtTimestamps([4, 5, 5, 5]);
+sink.samplesAtTimestamps([10, -2, 3]);
+```
+
+### CanvasSink
+
+Extract video samples as canvases with optional processing:
+
+```javascript
+import { CanvasSink } from "mediabunny";
+
+const sink = new CanvasSink(videoTrack, options);
+```
+
+#### Options
+
+```typescript
+type CanvasSinkOptions = {
+  width?: number;
+  height?: number;
+  fit?: "fill" | "contain" | "cover";
+  rotation?: 0 | 90 | 180 | 270;
+  poolSize?: number;
+};
+```
+
+#### Examples
+
+```javascript
+// Unaltered display dimensions
+new CanvasSink(videoTrack);
+
+// Width of 1280, maintaining aspect ratio
+new CanvasSink(videoTrack, {
+  width: 1280,
+});
+
+// Square canvases with cover fit
+new CanvasSink(videoTrack, {
+  width: 512,
+  height: 512,
+  fit: "cover",
+});
+
+// No rotation applied
+new CanvasSink(videoTrack, {
+  rotation: 0,
+});
+```
+
+#### Methods
+
+```javascript
+await sink.getCanvas(5); // => WrappedCanvas
+
+for await (const result of sink.canvases()) {
+  // ...
+}
+
+for await (const result of sink.canvasesAtTimestamps([0, 1, 2])) {
+  // ...
+}
+```
+
+#### Canvas pool
+
+```javascript
+const sink = new CanvasSink(videoTrack, { poolSize: 3 });
+
+const a = await sink.getCanvas(42);
+const b = await sink.getCanvas(42);
+const c = await sink.getCanvas(42);
+const d = await sink.getCanvas(42);
+
+// a.canvas === d.canvas (reused from pool)
+```
+
+### AudioSampleSink
+
+Extract decoded audio samples:
+
+```javascript
+import { AudioSampleSink } from "mediabunny";
+
+const sink = new AudioSampleSink(audioTrack);
+```
+
+Methods are analogous to VideoSampleSink:
+
+```javascript
+await sink.getSample(5);
+
+for await (const sample of sink.samples()) {
+  // ...
+}
+
+for await (const sample of sink.samplesAtTimestamps([0, 1, 2])) {
+  // ...
+}
+```
+
+### AudioBufferSink
+
+Extract AudioBuffer instances for Web Audio API:
+
+```javascript
+import { AudioBufferSink } from "mediabunny";
+
+const sink = new AudioBufferSink(audioTrack);
+```
+
+Methods yield `WrappedAudioBuffer` instances:
+
+```typescript
+type WrappedAudioBuffer = {
+  // An AudioBuffer that can be used with the Web Audio API.
+  buffer: AudioBuffer;
+  // The timestamp of the corresponding audio sample, in seconds.
+  timestamp: number;
+  // The duration of the corresponding audio sample, in seconds.
+  duration: number;
+};
+```
+
+## Writing Media Files
+
+### Creating an output
+
+```javascript
+import { Output, Mp4OutputFormat, BufferTarget } from "mediabunny";
+
+// In this example, we'll be creating an MP4 file in memory:
+const output = new Output({
+  format: new Mp4OutputFormat(),
+  target: new BufferTarget(),
+});
+```
+
+### Adding tracks
+
+```javascript
+output.addVideoTrack(videoSource);
+output.addAudioTrack(audioSource);
+output.addSubtitleTrack(subtitleSource);
+```
+
+With optional track metadata:
+
+```javascript
+// Video track with rotation and frame rate
+output.addVideoTrack(videoSource, {
+  rotation: 90, // Clockwise rotation in degrees
+  frameRate: 30, // Expected frame rate in hertz
+});
+
+// Audio tracks with language metadata
+output.addAudioTrack(audioSourceEng, {
+  language: "eng", // ISO 639-2/T language code
+});
+output.addAudioTrack(audioSourceGer, {
+  language: "ger",
+});
+
+// Multiple subtitle tracks
+output.addSubtitleTrack(subtitleSourceEng, { language: "eng" });
+output.addSubtitleTrack(subtitleSourceGer, { language: "ger" });
+```
+
+### Starting an output
+
+```javascript
+await output.start(); // Resolves once the output is ready to receive media data
+```
+
+### Adding media data
+
+After starting an Output, use the media sources to pipe media data:
+
+```javascript
+let framesAdded = 0;
+const intervalId = setInterval(() => {
+  const timestampInSeconds = framesAdded / 30;
+  const durationInSeconds = 1 / 30;
+
+  // Captures the canvas state at the time of calling `add`:
+  videoSource.add(timestampInSeconds, durationInSeconds);
+  framesAdded++;
+}, 1000 / 30);
+```
+
+### Finalizing an output
+
+```javascript
+await output.finalize(); // Resolves once the output is finalized
+```
+
+### Canceling an output
+
+```javascript
+await output.cancel(); // Resolves once the output is canceled
+```
+
+### Checking output state
+
+```javascript
+output.state; // => 'pending' | 'started' | 'canceled' | 'finalizing' | 'finalized'
+```
+
+## Output Targets
+
+### BufferTarget
+
+```javascript
+import { Output, BufferTarget } from "mediabunny";
+
+const output = new Output({
+  target: new BufferTarget(),
+  // ...
+});
+
+// ...
+
+output.target.buffer; // => null
+await output.finalize();
+output.target.buffer; // => ArrayBuffer
+```
+
+### StreamTarget
+
+```javascript
+import { Output, StreamTarget, StreamTargetChunk } from "mediabunny";
+
+const writable = new WritableStream({
+  write(chunk: StreamTargetChunk) {
+    chunk.data; // => Uint8Array
+    chunk.position; // => number
+
+    // Do something with the data...
+  },
+});
+
+const output = new Output({
+  target: new StreamTarget(writable),
+  // ...
+});
+```
+
+#### Chunked mode
+
+```javascript
+new StreamTarget(writable, {
+  chunked: true,
+  chunkSize: 2 ** 20, // Optional; defaults to 16 MiB
+});
+```
+
+#### Applying backpressure
+
+```javascript
+const writable = new WritableStream({
+  write(chunk: StreamTargetChunk) {
+    // Pretend writing out data takes 10 milliseconds:
+    return new Promise((resolve) => setTimeout(resolve, 10));
+  },
+});
+```
+
+#### Usage with File System API
+
+```javascript
+const handle = await window.showSaveFilePicker();
+const writableStream = await handle.createWritable();
+
+const output = new Output({
+  target: new StreamTarget(writableStream),
+  // ...
+});
+
+// ...
+
+await output.finalize(); // Will automatically close the writable stream
+```
+
+## Media Sources
+
+### Video encoding config
+
+```typescript
+type VideoEncodingConfig = {
+  codec: VideoCodec;
+  bitrate: number | Quality;
+  latencyMode?: "quality" | "realtime";
+  keyFrameInterval?: number;
+  fullCodecString?: string;
+
+  onEncodedPacket?: (
+    packet: EncodedPacket,
+    meta: EncodedVideoChunkMetadata | undefined
+  ) => unknown;
+  onEncoderConfig?: (config: VideoEncoderConfig) => unknown;
+};
+```
+
+### Audio encoding config
+
+```typescript
+type AudioEncodingConfig = {
+  codec: AudioCodec;
+  bitrate?: number | Quality;
+  fullCodecString?: string;
+
+  onEncodedPacket?: (
+    packet: EncodedPacket,
+    meta: EncodedAudioChunkMetadata | undefined
+  ) => unknown;
+  onEncoderConfig?: (config: AudioEncoderConfig) => unknown;
+};
+```
+
+### Subjective qualities
+
+```javascript
+import {
+  QUALITY_VERY_LOW,
+  QUALITY_LOW,
+  QUALITY_MEDIUM,
+  QUALITY_HIGH,
+  QUALITY_VERY_HIGH,
+} from "mediabunny";
+```
+
+### Video sources
+
+#### VideoSampleSource
+
+```javascript
+import { VideoSampleSource } from "mediabunny";
+
+const sampleSource = new VideoSampleSource({
+  codec: "avc",
+  bitrate: 1e6,
+});
+
+await sampleSource.add(videoSample);
+videoSample.close(); // If it's not needed anymore
+
+// You may optionally force samples to be encoded as key frames:
+await sampleSource.add(videoSample, { keyFrame: true });
+```
+
+#### CanvasSource
+
+```javascript
+import { CanvasSource, QUALITY_MEDIUM } from "mediabunny";
+
+const canvasSource = new CanvasSource(canvasElement, {
+  codec: "av1",
+  bitrate: QUALITY_MEDIUM,
+});
+
+await canvasSource.add(0.0, 0.1); // Timestamp, duration (in seconds)
+await canvasSource.add(0.1, 0.1);
+await canvasSource.add(0.2, 0.1);
+
+// You may optionally force frames to be encoded as key frames:
+await canvasSource.add(0.3, 0.1, { keyFrame: true });
+```
+
+#### MediaStreamVideoTrackSource
+
+```javascript
+import { MediaStreamVideoTrackSource } from "mediabunny";
+
+// Get the user's screen
+const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+const videoTrack = stream.getVideoTracks()[0];
+
+const videoTrackSource = new MediaStreamVideoTrackSource(videoTrack, {
+  codec: 'vp9',
+  bitrate: 1e7,
+});
+
+// Make sure to allow any internal errors to properly bubble up
+videoTrackSource.errorPromise.catch((error) => ...);
+```
+
+<div className="info">
+  If this source is the only MediaStreamTrack source in the Output, then the
+  first video sample added by it starts at timestamp 0. If there are multiple,
+  then the earliest media sample across all tracks starts at timestamp 0, and
+  all tracks will be perfectly synchronized with each other.
+</div>
+
+<div className="warning">
+  MediaStreamVideoTrackSource's internals are detached from the typical code
+  flow but can still throw, so make sure to utilize errorPromise to deal with
+  any errors and to stop the Output.
+</div>
+
+#### EncodedVideoPacketSource
+
+```javascript
+import { EncodedVideoPacketSource } from "mediabunny";
+
+// You must specify the codec name:
+const packetSource = new EncodedVideoPacketSource("vp9");
+
+await packetSource.add(packet1);
+await packetSource.add(packet2);
+```
+
+<div className="important">You must add the packets in decode order.</div>
+
+Provide additional metadata with the first packet:
+
+```javascript
+await packetSource.add(firstPacket, {
+  decoderConfig: {
+    codec: "vp09.00.31.08",
+    codedWidth: 1280,
+    codedHeight: 720,
+    colorSpace: {
+      primaries: "bt709",
+      transfer: "iec61966-2-1",
+      matrix: "smpte170m",
+      fullRange: false,
+    },
+    description: undefined,
+  },
+});
+```
+
+### Audio sources
+
+#### AudioSampleSource
+
+```javascript
+import { AudioSampleSource } from "mediabunny";
+
+const sampleSource = new AudioSampleSource({
+  codec: "aac",
+  bitrate: 128e3,
+});
+
+await sampleSource.add(audioSample);
+audioSample.close(); // If it's not needed anymore
+```
+
+#### AudioBufferSource
+
+```javascript
+import { AudioBufferSource, QUALITY_MEDIUM } from "mediabunny";
+
+const bufferSource = new AudioBufferSource({
+  codec: "opus",
+  bitrate: QUALITY_MEDIUM,
+});
+
+await bufferSource.add(audioBuffer1);
+await bufferSource.add(audioBuffer2);
+await bufferSource.add(audioBuffer3);
+```
+
+#### MediaStreamAudioTrackSource
+
+```javascript
+import { MediaStreamAudioTrackSource } from "mediabunny";
+
+// Get the user's microphone
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+const audioTrack = stream.getAudioTracks()[0];
+
+const audioTrackSource = new MediaStreamAudioTrackSource(audioTrack, {
+  codec: 'opus',
+  bitrate: 128e3,
+});
+
+// Make sure to allow any internal errors to properly bubble up
+audioTrackSource.errorPromise.catch((error) => ...);
+```
+
+#### EncodedAudioPacketSource
+
+```javascript
+import { EncodedAudioPacketSource } from "mediabunny";
+
+// You must specify the codec name:
+const packetSource = new EncodedAudioPacketSource("aac");
+
+await packetSource.add(packet);
+```
+
+Provide additional metadata with the first packet:
+
+```javascript
+await packetSource.add(firstPacket, {
+  decoderConfig: {
+    codec: "mp4a.40.2",
+    numberOfChannels: 2,
+    sampleRate: 48000,
+    description: new Uint8Array([17, 144]),
+  },
+});
+```
+
+### Subtitle sources
+
+#### TextSubtitleSource
+
+```javascript
+import { TextSubtitleSource } from "mediabunny";
+
+const textSource = new TextSubtitleSource("webvtt");
+
+const text = `WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+This is your last chance.
+
+00:00:02.500 --> 00:00:04.000
+After this, there is no turning back.
+`;
+
+await textSource.add(text);
+```
+
+Or add cues individually:
+
+```javascript
+const textSource = new TextSubtitleSource("webvtt");
+
+await textSource.add("WEBVTT\n\n");
+await textSource.add("00:00:00.000 --> 00:00:02.000\nHello there!\n\n");
+await textSource.add("00:00:02.500 --> 00:00:04.000\nChunky chunks.\n\n");
+```
+
+## Output Formats
+
+### Common properties
+
+```javascript
+format.fileExtension; // => '.mp4'
+format.mimeType; // => 'video/mp4'
+
+format.getSupportedCodecs(); // => MediaCodec[]
+format.getSupportedVideoCodecs(); // => VideoCodec[]
+format.getSupportedAudioCodecs(); // => AudioCodec[]
+format.getSupportedSubtitleCodecs(); // => SubtitleCodec[]
+
+format.supportsVideoRotationMetadata; // => boolean
+
+format.getSupportedTrackCounts(); // => TrackCountLimits
+```
+
+### MP4
+
+```javascript
+import { Output, Mp4OutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new Mp4OutputFormat(options),
+  // ...
+});
+```
+
+Options:
+
+```typescript
+type IsobmffOutputFormatOptions = {
+  fastStart?: false | "in-memory" | "fragmented";
+  minimumFragmentDuration?: number;
+
+  onFtyp?: (data: Uint8Array, position: number) => unknown;
+  onMoov?: (data: Uint8Array, position: number) => unknown;
+  onMdat?: (data: Uint8Array, position: number) => unknown;
+  onMoof?: (data: Uint8Array, position: number, timestamp: number) => unknown;
+};
+```
+
+### QuickTime File Format (.mov)
+
+```javascript
+import { Output, MovOutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new MovOutputFormat(options),
+  // ...
+});
+```
+
+Uses the same `IsobmffOutputFormatOptions` as MP4.
+
+### WebM
+
+```javascript
+import { Output, WebMOutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new WebMOutputFormat(options),
+  // ...
+});
+```
+
+Options:
+
+```typescript
+type MkvOutputFormatOptions = {
+  appendOnly?: boolean;
+  minimumClusterDuration?: number;
+
+  onEbmlHeader?: (data: Uint8Array, position: number) => void;
+  onSegmentHeader?: (data: Uint8Array, position: number) => unknown;
+  onCluster?: (
+    data: Uint8Array,
+    position: number,
+    timestamp: number
+  ) => unknown;
+};
+```
+
+### Matroska (.mkv)
+
+```javascript
+import { Output, MkvOutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new MkvOutputFormat(options),
+  // ...
+});
+```
+
+Uses the same `MkvOutputFormatOptions` as WebM.
+
+### Ogg
+
+```javascript
+import { Output, OggOutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new OggOutputFormat(options),
+  // ...
+});
+```
+
+<div className="info">This format ensures append-only writing.</div>
+
+Options:
+
+```typescript
+type OggOutputFormatOptions = {
+  onPage?: (data: Uint8Array, position: number, source: MediaSource) => unknown;
+};
+```
+
+### MP3
+
+```javascript
+import { Output, Mp3OutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new Mp3OutputFormat(options),
+  // ...
+});
+```
+
+Options:
+
+```typescript
+type Mp3OutputFormatOptions = {
+  xingHeader?: boolean;
+  onXingFrame?: (data: Uint8Array, position: number) => unknown;
+};
+```
+
+### WAVE
+
+```javascript
+import { Output, WavOutputFormat } from "mediabunny";
+
+const output = new Output({
+  format: new WavOutputFormat(options),
+  // ...
+});
+```
+
+Options:
+
+```typescript
+type WavOutputFormatOptions = {
+  large?: boolean;
+  onHeader?: (data: Uint8Array, position: number) => unknown;
+};
+```
+
+## Converting Media Files
+
+### Basic usage
+
+```javascript
+import {
+  Input,
+  Output,
+  WebMOutputFormat,
+  BufferTarget,
+  Conversion,
+} from "mediabunny";
+
+const input = new Input({ ... });
+const output = new Output({
+  format: new WebMOutputFormat(),
+  target: new BufferTarget(),
+});
+
+const conversion = await Conversion.init({ input, output });
+await conversion.execute();
+
+// output.target.buffer contains the final file
+```
+
+<div className="info">
+  The Output passed to the Conversion must be fresh; that is, it must have no
+  added tracks and be in the 'pending' state (not started yet).
+</div>
+
+### Monitoring progress
+
+```javascript
+const conversion = await Conversion.init({ input, output });
+
+conversion.onProgress = (progress: number) => {
+  // `progress` is a number between 0 and 1 (inclusive)
+};
+
+await conversion.execute();
+```
+
+### Canceling a conversion
+
+```javascript
+await conversion.cancel(); // Resolves once the conversion is canceled
+```
+
+### Video options
+
+```typescript
+type ConversionVideoOptions = {
+  discard?: boolean;
+  width?: number;
+  height?: number;
+  fit?: "fill" | "contain" | "cover";
+  rotate?: 0 | 90 | 180 | 270;
+  frameRate?: number;
+  codec?: VideoCodec;
+  bitrate?: number | Quality;
+  forceTranscode?: boolean;
+};
+```
+
+Example - resize video to 720p:
+
+```javascript
+const conversion = await Conversion.init({
+  input,
+  output,
+  video: {
+    width: 1280,
+    height: 720,
+    fit: "contain",
+  },
+});
+```
+
+### Audio options
+
+```typescript
+type ConversionAudioOptions = {
+  discard?: boolean;
+  codec?: AudioCodec;
+  bitrate?: number | Quality;
+  numberOfChannels?: number;
+  sampleRate?: number;
+  forceTranscode?: boolean;
+};
+```
+
+Example - convert to mono with specific sample rate:
+
+```javascript
+const conversion = await Conversion.init({
+  input,
+  output,
+  audio: {
+    numberOfChannels: 1,
+    sampleRate: 48000,
+  },
+});
+```
+
+### Track-specific options
+
+```javascript
+const conversion = await Conversion.init({
+  input,
+  output,
+
+  // Function gets invoked for each video track:
+  video: (videoTrack, n) => {
+    if (n > 1) {
+      // Keep only the first video track
+      return { discard: true };
+    }
+
+    return {
+      // Shrink width to 640 only if the track is wider
+      width: Math.min(videoTrack.displayWidth, 640),
+    };
+  },
+
+  // Async functions work too:
+  audio: async (audioTrack, n) => {
+    if (audioTrack.languageCode !== "rus") {
+      // Keep only Russian audio tracks
+      return { discard: true };
+    }
+
+    return {
+      codec: "aac",
+    };
+  },
+});
+```
+
+### Trimming
+
+```javascript
+const conversion = await Conversion.init({
+  input,
+  output,
+  trim: {
+    start: 10,
+    end: 25,
+  },
+});
+```
+
+### Discarded tracks
+
+```javascript
+const conversion = await Conversion.init({ input, output });
+conversion.discardedTracks; // => DiscardedTrack[]
+
+type DiscardedTrack = {
+  // The track that was discarded
+  track: InputTrack,
+  // The reason for discarding the track
+  reason:
+    | "discarded_by_user"
+    | "max_track_count_reached"
+    | "max_track_count_of_type_reached"
+    | "unknown_source_codec"
+    | "undecodable_source_codec"
+    | "no_encodable_target_codec",
+};
+```
+
+Check which tracks made it into the output:
+
+```javascript
+conversion.utilizedTracks; // => InputTrack[]
+```
+
+## Packets & Samples
+
+### Introduction
+
+Media data in Mediabunny is present in two different forms:
+
+- **Packet**: Encoded media data, the result of an encoding process
+- **Sample**: Raw, uncompressed, presentable media data
+
+Samples can be encoded into packets, and packets can be decoded into samples.
+
+### Connection to WebCodecs
+
+Packets and samples in Mediabunny correspond directly with concepts of the WebCodecs API:
+
+- `EncodedPacket` ↔ `EncodedVideoChunk` for video packets / `EncodedAudioChunk` for audio packets
+- `VideoSample` ↔ `VideoFrame`
+- `AudioSample` ↔ `AudioData`
+
+### Conversion between formats
+
+```javascript
+import { EncodedPacket, VideoSample, AudioSample } from "mediabunny";
+
+// EncodedPacket to WebCodecs chunks:
+encodedPacket.toEncodedVideoChunk(); // => EncodedVideoChunk
+encodedPacket.toEncodedAudioChunk(); // => EncodedAudioChunk
+
+// WebCodecs chunks to EncodedPacket:
+EncodedPacket.fromEncodedChunk(videoChunk); // => EncodedPacket
+EncodedPacket.fromEncodedChunk(audioChunk); // => EncodedPacket
+
+// VideoSample to VideoFrame:
+videoSample.toVideoFrame(); // => VideoFrame
+// VideoFrame to VideoSample:
+new VideoSample(videoFrame); // => VideoSample
+
+// AudioSample to AudioData:
+audioSample.toAudioData(); // => AudioData
+// AudioData to AudioSample:
+new AudioSample(audioData); // => AudioSample
+```
+
+### EncodedPacket
+
+#### Creating packets
+
+```javascript
+import { EncodedPacket } from "mediabunny";
+
+const encodedVideoData = new Uint8Array([...]);
+const encodedPacket = new EncodedPacket(encodedVideoData, 'key', 5, 1/24);
+```
+
+From WebCodecs:
+
+```javascript
+// From EncodedVideoChunk:
+const encodedPacket = EncodedPacket.fromEncodedChunk(encodedVideoChunk);
+
+// From EncodedAudioChunk:
+const encodedPacket = EncodedPacket.fromEncodedChunk(encodedAudioChunk);
+```
+
+#### Inspecting packets
+
+```javascript
+encodedPacket.data; // => Uint8Array
+encodedPacket.type; // => PacketType ('key' | 'delta')
+encodedPacket.timestamp; // => Presentation timestamp in seconds
+encodedPacket.duration; // => Duration in seconds
+encodedPacket.sequenceNumber; // => number
+```
+
+#### Cloning packets
+
+```javascript
+// Creates a clone identical to the original:
+packet.clone();
+
+// Creates a clone with the timestamp set to 10 seconds:
+packet.clone({ timestamp: 10 });
+```
+
+### VideoSample
+
+#### Creating video samples
+
+Image source constructor:
+
+```javascript
+import { VideoSample } from "mediabunny";
+
+// Creates a sample from a canvas element
+const sample = new VideoSample(canvas, {
+  timestamp: 3, // in seconds
+  duration: 1 / 24, // in seconds
+});
+
+// Creates a sample from an image element, with some added rotation
+const sample = new VideoSample(imageElement, {
+  timestamp: 5, // in seconds
+  rotation: 90, // in degrees clockwise
+});
+
+// Creates a sample from a VideoFrame (timestamp will be copied)
+const sample = new VideoSample(videoFrame);
+```
+
+Raw constructor:
+
+```javascript
+// Creates a sample from pixel data in the RGBX format
+const sample = new VideoSample(buffer, {
+  format: "RGBX",
+  codedWidth: 1280,
+  codedHeight: 720,
+  timestamp: 0,
+});
+
+// Creates a sample from pixel data in the YUV 4:2:0 format
+const sample = new VideoSample(buffer, {
+  format: "I420",
+  codedWidth: 1280,
+  codedHeight: 720,
+  timestamp: 0,
+});
+```
+
+#### Inspecting video samples
+
+```javascript
+videoSample.format; // => VideoPixelFormat | null
+videoSample.codedWidth; // => number
+videoSample.codedHeight; // => number
+videoSample.displayWidth; // => number
+videoSample.displayHeight; // => number
+videoSample.rotation; // => 0 | 90 | 180 | 270
+videoSample.timestamp; // => Presentation timestamp in seconds
+videoSample.duration; // => Duration in seconds
+videoSample.colorSpace; // => VideoColorSpace
+```
+
+#### Using video samples
+
+Convert to VideoFrame:
+
+```javascript
+videoSample.toVideoFrame(); // => VideoFrame
+```
+
+Draw to canvas:
+
+```javascript
+videoSample.draw(
+  context, // CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+  dx, dy, // position
+  dWidth?, dHeight? // optional dimensions
+);
+
+// Or with source rectangle:
+videoSample.draw(
+  context,
+  sx, sy, sWidth, sHeight, // source rectangle
+  dx, dy, dWidth?, dHeight? // destination
+);
+```
+
+Copy pixel data:
+
+```javascript
+const bytesNeeded = videoSample.allocationSize(); // => number
+const bytes = new Uint8Array(bytesNeeded);
+videoSample.copyTo(bytes);
+```
+
+Clone:
+
+```javascript
+const clonedSample = videoSample.clone(); // => VideoSample
+```
+
+#### Closing video samples
+
+```javascript
+videoSample.close();
+```
+
+<div className="warning">
+  You must manually close a VideoSample after you've used it to free
+  internally-held resources.
+</div>
+
+### AudioSample
+
+#### Creating audio samples
+
+```javascript
+import { AudioSample } from "mediabunny";
+
+// From AudioData:
+const sample = new AudioSample(audioData);
+
+// From raw data:
+const sample = new AudioSample({
+  data: new Float32Array([...]),
+  format: 'f32-planar', // Audio sample format
+  numberOfChannels: 2,
+  sampleRate: 44100, // in Hz
+  timestamp: 0, // in seconds
+});
+
+// From AudioBuffer:
+const timestamp = 0; // in seconds
+const samples = AudioSample.fromAudioBuffer(audioBuffer, timestamp);
+// => Returns multiple AudioSamples if the AudioBuffer is very long
+```
+
+#### Audio sample formats
+
+- `'u8'`: 8-bit unsigned integer (interleaved)
+- `'u8-planar'`: 8-bit unsigned integer (planar)
+- `'s16'`: 16-bit signed integer (interleaved)
+- `'s16-planar'`: 16-bit signed integer (planar)
+- `'s32'`: 32-bit signed integer (interleaved)
+- `'s32-planar'`: 32-bit signed integer (planar)
+- `'f32'`: 32-bit floating point (interleaved)
+- `'f32-planar'`: 32-bit floating point (planar)
+
+#### Inspecting audio samples
+
+```javascript
+audioSample.format; // => AudioSampleFormat
+audioSample.sampleRate; // => Sample rate in Hz
+audioSample.numberOfFrames; // => Number of frames per channel
+audioSample.numberOfChannels; // => Number of channels
+audioSample.timestamp; // => Presentation timestamp in seconds
+audioSample.duration; // => Duration in seconds
+```
+
+#### Using audio samples
+
+Convert to AudioData:
+
+```javascript
+audioSample.toAudioData(); // => AudioData
+```
+
+Convert to AudioBuffer:
+
+```javascript
+audioSample.toAudioBuffer(); // => AudioBuffer
+```
+
+Copy raw audio data:
+
+```javascript
+const options = { planeIndex: 0, format: "f32" };
+const bytesNeeded = audioSample.allocationSize(options);
+const data = new Float32Array(bytesNeeded / 4);
+audioSample.copyTo(data, options);
+```
+
+#### Closing audio samples
+
+```javascript
+audioSample.close();
+```
+
+<div className="warning">
+  You must manually close an AudioSample after you've used it to free
+  internally-held resources.
+</div>
+
+## Supported Formats & Codecs
+
+### Container formats
+
+Mediabunny supports many commonly used media container formats, all of which are supported bidirectionally (reading & writing):
+
+- ISOBMFF-based formats (.mp4, .m4v, .m4a, ...)
+- QuickTime File Format (.mov)
+- Matroska (.mkv)
+- WebM (.webm)
+- Ogg (.ogg)
+- MP3 (.mp3)
+- WAVE (.wav)
+
+### Video codecs
+
+- `'avc'` - Advanced Video Coding (AVC) / H.264
+- `'hevc'` - High Efficiency Video Coding (HEVC) / H.265
+- `'vp8'` - VP8
+- `'vp9'` - VP9
+- `'av1'` - AOMedia Video 1 (AV1)
+
+### Audio codecs
+
+- `'aac'` - Advanced Audio Coding (AAC)
+- `'opus'` - Opus
+- `'mp3'` - MP3
+- `'vorbis'` - Vorbis
+- `'flac'` - Free Lossless Audio Codec (FLAC)
+- `'pcm-u8'` - 8-bit unsigned PCM
+- `'pcm-s8'` - 8-bit signed PCM
+- `'pcm-s16'` - 16-bit little-endian signed PCM
+- `'pcm-s16be'` - 16-bit big-endian signed PCM
+- `'pcm-s24'` - 24-bit little-endian signed PCM
+- `'pcm-s24be'` - 24-bit big-endian signed PCM
+- `'pcm-s32'` - 32-bit little-endian signed PCM
+- `'pcm-s32be'` - 32-bit big-endian signed PCM
+- `'pcm-f32'` - 32-bit little-endian float PCM
+- `'pcm-f32be'` - 32-bit big-endian float PCM
+- `'pcm-f64'` - 64-bit little-endian float PCM
+- `'pcm-f64be'` - 64-bit big-endian float PCM
+- `'ulaw'` - μ-law PCM
+- `'alaw'` - A-law PCM
+
+### Subtitle codecs
+
+- `'webvtt'` - WebVTT
+
+### Compatibility table
+
+| Codec       | .mp4 | .mov | .mkv | .webm | .ogg | .mp3 | .wav |
+| ----------- | ---- | ---- | ---- | ----- | ---- | ---- | ---- |
+| 'avc'       | ✓    | ✓    | ✓    |       |      |      |      |
+| 'hevc'      | ✓    | ✓    | ✓    |       |      |      |      |
+| 'vp8'       | ✓    | ✓    | ✓    | ✓     |      |      |      |
+| 'vp9'       | ✓    | ✓    | ✓    | ✓     |      |      |      |
+| 'av1'       | ✓    | ✓    | ✓    | ✓     |      |      |      |
+| 'aac'       | ✓    | ✓    | ✓    |       |      |      |      |
+| 'opus'      | ✓    | ✓    | ✓    | ✓     | ✓    |      |      |
+| 'mp3'       | ✓    | ✓    | ✓    |       |      | ✓    |      |
+| 'vorbis'    | ✓    | ✓    | ✓    | ✓     | ✓    |      |      |
+| 'flac'      | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-u8'    | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-s8'    |      |      |      |       |      |      | ✓    |
+| 'pcm-s16'   | ✓    | ✓    | ✓    |       |      |      | ✓    |
+| 'pcm-s16be' | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-s24'   | ✓    | ✓    | ✓    |       |      |      | ✓    |
+| 'pcm-s24be' | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-s32'   | ✓    | ✓    | ✓    |       |      |      | ✓    |
+| 'pcm-s32be' | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-f32'   | ✓    | ✓    | ✓    |       |      |      | ✓    |
+| 'pcm-f32be' | ✓    | ✓    |      |       |      |      |      |
+| 'pcm-f64'   | ✓    | ✓    | ✓    |       |      |      |      |
+| 'pcm-f64be' | ✓    | ✓    |      |       |      |      |      |
+| 'ulaw'      | ✓    | ✓    |      |       |      |      |      |
+| 'alaw'      | ✓    | ✓    |      |       |      |      |      |
+| 'webvtt'    | (✓)  | (✓)  | (✓)  |       |      |      |      |
+
+<div className="note">
+  WebM only supports a small subset of the codecs supported by Matroska.
+  However, this library can technically read all codecs from a WebM that are
+  supported by Matroska.
+</div>
+
+<div className="note">WebVTT can only be written, not read.</div>
+
+### Querying codec encodability
+
+#### Basic encodability checks
+
+```javascript
+import { canEncode } from "mediabunny";
+
+canEncode("avc"); // => Promise<boolean>
+canEncode("opus"); // => Promise<boolean>
+```
+
+Video codecs are checked using 1280x720 @1Mbps, while audio codecs are checked using 2 channels, 48 kHz @128kbps.
+
+#### Specific configuration checks
+
+```javascript
+import { canEncodeVideo, canEncodeAudio } from "mediabunny";
+
+canEncodeVideo("hevc", {
+  width: 1920,
+  height: 1080,
+  bitrate: 1e7,
+}); // => Promise<boolean>
+
+canEncodeAudio("aac", {
+  numberOfChannels: 1,
+  sampleRate: 44100,
+  bitrate: 192e3,
+}); // => Promise<boolean>
+```
+
+#### Multiple codec checks
+
+```javascript
+import {
+  getEncodableCodecs,
+  getEncodableVideoCodecs,
+  getEncodableAudioCodecs,
+  getEncodableSubtitleCodecs,
+} from "mediabunny";
+
+getEncodableCodecs(); // => Promise<MediaCodec[]>
+getEncodableVideoCodecs(); // => Promise<VideoCodec[]>
+getEncodableAudioCodecs(); // => Promise<AudioCodec[]>
+getEncodableSubtitleCodecs(); // => Promise<SubtitleCodec[]>
+
+// With configuration options:
+getEncodableVideoCodecs(["avc", "hevc", "vp8"], {
+  width: 1920,
+  height: 1080,
+  bitrate: 1e7,
+}); // => Promise<VideoCodec[]>
+```
+
+#### Find best supported codec
+
+```javascript
+import {
+  getFirstEncodableVideoCodec,
+  getFirstEncodableAudioCodec,
+  getFirstEncodableSubtitleCodec,
+} from "mediabunny";
+
+getFirstEncodableVideoCodec(["avc", "vp9", "av1"]); // => Promise<VideoCodec | null>
+getFirstEncodableAudioCodec(["opus", "aac"]); // => Promise<AudioCodec | null>
+
+getFirstEncodableVideoCodec(["avc", "hevc", "vp8"], {
+  width: 1920,
+  height: 1080,
+  bitrate: 1e7,
+}); // => Promise<VideoCodec | null>
+```
+
+#### Find codec compatible with output format
+
+```javascript
+import { Mp4OutputFormat, getFirstEncodableVideoCodec } from "mediabunny";
+
+const outputFormat = new Mp4OutputFormat();
+const containableVideoCodecs = outputFormat.getSupportedVideoCodecs();
+const bestVideoCodec = await getFirstEncodableVideoCodec(
+  containableVideoCodecs
+);
+```
+
+<div className="info">
+  Codec encodability checks take custom encoders into account.
+</div>
+
+### Querying codec decodability
+
+Whether a codec can be decoded depends on the specific codec configuration of an InputTrack; you can use its `canDecode` method to check.
+
+```javascript
+await track.canDecode(); // => boolean
+```
+
+## Custom Coders
+
+Mediabunny allows you to register your own custom encoders and decoders - useful if you want to polyfill a codec that's not supported in all browsers, or want to use Mediabunny outside of an environment with WebCodecs (such as Node.js).
+
+<div className="warning">
+  Mediabunny requires customs encoders and decoders to follow very specific
+  implementation rules. Pay special attention to the parts labeled with "must"
+  to ensure compatibility.
+</div>
+
+### Custom encoders
+
+#### Creating a custom encoder
+
+```javascript
+import { CustomAudioEncoder, registerEncoder } from "mediabunny";
+
+class MyAwesomeMp3Encoder extends CustomAudioEncoder {
+  // ...
+}
+registerEncoder(MyAwesomeMp3Encoder);
+```
+
+#### Available properties
+
+```javascript
+class {
+  // For video encoders:
+  codec: VideoCodec;
+  config: VideoEncoderConfig;
+  onPacket: (packet: EncodedPacket, meta?: EncodedVideoChunkMetadata) => unknown;
+
+  // For audio encoders:
+  codec: AudioCodec;
+  config: AudioEncoderConfig;
+  onPacket: (packet: EncodedPacket, meta?: EncodedAudioChunkMetadata) => unknown;
+}
+```
+
+#### Required methods
+
+```javascript
+class {
+  // For video encoders:
+  static supports(codec: VideoCodec, config: VideoEncoderConfig): boolean;
+  // For audio encoders:
+  static supports(codec: AudioCodec, config: AudioEncoderConfig): boolean;
+
+  init(): Promise<void> | void;
+  encode(sample: VideoSample, options: VideoEncoderEncodeOptions): Promise<void> | void; // For video
+  encode(sample: AudioSample): Promise<void> | void; // For audio
+  flush(): Promise<void> | void;
+  close(): Promise<void> | void;
+}
+```
+
+- **supports**: Static method that must return true if the encoder can encode the specified codec
+- **init**: Called after class instantiation for initialization logic
+- **encode**: Called for each sample to be encoded. Must pass resulting packets to `onPacket`
+- **flush**: Must finish encoding all remaining samples and reset internal state
+- **close**: Called when encoder is no longer needed
+
+<div className="info">
+  All instance methods can return promises. The library will serialize method
+  calls to prevent concurrent execution.
+</div>
+
+<div className="warning">
+  The packets passed to onPacket must be in decode order.
+</div>
+
+### Custom decoders
+
+#### Creating a custom decoder
+
+```javascript
+import { CustomAudioDecoder, registerDecoder } from "mediabunny";
+
+class MyAwesomeMp3Decoder extends CustomAudioDecoder {
+  // ...
+}
+registerDecoder(MyAwesomeMp3Decoder);
+```
+
+#### Available properties
+
+```javascript
+class {
+  // For video decoders:
+  codec: VideoCodec;
+  config: VideoDecoderConfig;
+  onSample: (sample: VideoSample) => unknown;
+
+  // For audio decoders:
+  codec: AudioCodec;
+  config: AudioDecoderConfig;
+  onSample: (sample: AudioSample) => unknown;
+}
+```
+
+#### Required methods
+
+```javascript
+class {
+  // For video decoders:
+  static supports(codec: VideoCodec, config: VideoDecoderConfig): boolean;
+  // For audio decoders:
+  static supports(codec: AudioCodec, config: AudioDecoderConfig): boolean;
+
+  init(): Promise<void> | void;
+  decode(packet: EncodedPacket): Promise<void> | void;
+  flush(): Promise<void> | void;
+  close(): Promise<void> | void;
+}
+```
+
+- **supports**: Static method that must return true if the decoder can decode the specified codec
+- **init**: Called after class instantiation for initialization logic
+- **decode**: Called for each packet to be decoded. Must pass resulting samples to `onSample`
+- **flush**: Must finish decoding all remaining packets and reset internal state
+- **close**: Called when decoder is no longer needed
+
+<div className="info">
+  All instance methods can return promises. The library will serialize method
+  calls to prevent concurrent execution.
+</div>
+
+<div className="warning">
+  The samples passed to onSample must be sorted by increasing timestamp. For
+  video streams using B-frames, the decoder must internally reorder frames to
+  emit them sorted by presentation timestamp. This requirement is reset each
+  time flush is called.
+</div>
+
+## Migration
+
+If you're coming from mp4-muxer or webm-muxer, you should migrate to Mediabunny. The migration process involves:
+
+### From mp4-muxer
+
+1. Replace `mp4-muxer` import with `mediabunny`
+2. Change `Muxer` to `Output` with `Mp4OutputFormat`
+3. Update method calls to use new API
+
+### From webm-muxer
+
+1. Replace `webm-muxer` import with `mediabunny`
+2. Change `Muxer` to `Output` with `WebMOutputFormat`
+3. Update method calls to use new API
+
+Due to tree shaking, if you only need an MP4 or WebM muxer, this library's bundle size will still be very small.
+
+## Technical Overview
+
+At its core, Mediabunny is a collection of multiplexers and demultiplexers, one of each for every container format. Demultiplexers stream data from sources, while multiplexers stream data to targets. Every demultiplexer is capable of extracting file metadata as well as compressed media data, while multiplexers write metadata and encoded media data into a new file.
+
+Mediabunny then provides several wrappers around the WebCodecs API to simplify usage: for reading, it creates decoders with the correct codec configuration and efficiently decodes media data in a pipelined way. For writing, it figures out the necessary codec configuration and sets up encoders which are then used to encode raw media data, while respecting the backpressure applied by the encoder.
+
+The conversion abstraction is built on top of Mediabunny's reading and writing primitives and combines them both in a heavily-pipelined way, making sure reading and writing happen in lockstep. It also consists of a lot of conditional logic probing output track compatibility, decoding support, and finding encodable codec configurations. It makes use of the Canvas API for video processing operations, and uses a custom implementation for audio resampling and up/downmixing.
+
+## Motivation
+
+Mediabunny is the evolution of the mp4-muxer and webm-muxer libraries, which were both created due to the advent of the WebCodecs API. While they fulfilled their job just fine, there were several painpoints:
+
+- Lots of duplicated code between the two libraries, otherwise very similar API
+- No help with the difficulties of navigating the WebCodecs API & related browser APIs
+- "mp4-demuxer when??"
+
+This library is the result of unifying these libraries into one, solving all the above issues, and expanding the scope. Now:
+
+- Changing the output file format is a single-line change; the rest of the API is identical
+- Lots of abstractions on top of the WebCodecs API & browser APIs are provided
+- mp4-demuxer now.
+
+## Additional Notes
+
+### Negative timestamps
+
+While packet and sample durations cannot be negative, packet and sample timestamps can be negative. A negative timestamp represents a sample that starts playing before the composition does (the composition always starts at 0). Negative timestamps are typically a result of a track being trimmed at the start, either to cut off a piece of media or to synchronize it with the other tracks. Therefore, you should avoid presenting any sample with a negative timestamp.
+
+### Decode vs. presentation order
+
+Packets may appear out-of-order in the file, meaning the order in which they are decoded does not correspond to the order in which the decoded data is displayed (see B-frames). The methods on media sinks differ with respect to which ordering they use to query and retrieve packets:
+
+- **Presentation order**: The order in which the data is to be presented; sorted by timestamp
+- **Decode order**: The order in which packets must be decoded; not always sorted by timestamp
+
+### Backpressure
+
+Media sources are the means by which backpressure is propagated from the output pipeline into your application logic. The Output may want to apply backpressure if the encoders or the StreamTarget's writable can't keep up.
+
+Backpressure is communicated by media sources via promises:
+
+```javascript
+// Wrong:
+while (notDone) {
+  mediaSource.add(...);
+}
+
+// Correct:
+while (notDone) {
+  await mediaSource.add(...);
+}
+```
+
+### Closing sources
+
+When you're done using a media source, close it as soon as possible:
+
+```javascript
+mediaSource.close();
+```
+
+Closing sources manually improves performance and lowers memory usage, especially when your Output has multiple tracks that finish at different times.
+
+---
+
+This completes the comprehensive MDX documentation for Mediabunny, preserving all the original content while organizing it in a clear, structured format suitable for modern documentation systems.

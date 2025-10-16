@@ -1,0 +1,62 @@
+# Loom Downloader Testing Plan
+
+Here is a list of test cases to verify the functionality of the Loom Downloader extension.
+
+## Standard Videos
+
+- [ ] **M3U8 Raw URL with MP4 Transcoded:** [https://www.loom.com/share/43d05f362f734614a2e81b4694a3a523](https://www.loom.com/share/43d05f362f734614a2e81b4694a3a523)
+
+  - _A Ruler for Windows - 28 March 2022_ by wILLIAM PIP
+  - Duration: 27 seconds
+  - Expected: mp4 format with JSON subtitles only
+
+- [ ] **WebM Raw URL with MP4 Transcoded:** [https://www.loom.com/share/c43a642f815f4378b6f80a889bb73d8d](https://www.loom.com/share/c43a642f815f4378b6f80a889bb73d8d)
+
+  - _Lilah Nielsen Intro Video_ by Lilah Nielsen
+  - Duration: 20 seconds
+  - Expected: webm format with no subtitles
+
+- [ ] **M3U8 Raw URL with Multiple Subtitle Formats:** [https://www.loom.com/share/9458bcbf79784162aa62ffb8dd66201b](https://www.loom.com/share/9458bcbf79784162aa62ffb8dd66201b)
+
+  - _Sharing screen with gpt-4_ by Suneel Matham
+  - Duration: 93 seconds
+  - Expected: mp4 format with both VTT and JSON subtitles, chapters available
+
+- [ ] **MPD Raw URL with Description:** [https://www.loom.com/share/24351eb8b317420289b158e4b7e96ff2](https://www.loom.com/share/24351eb8b317420289b158e4b7e96ff2)
+  - _OMFG clown_ by MrPumkin B
+  - Duration: 210 seconds
+  - Expected: webm format with description, no subtitles
+
+## Special Cases
+
+- [ ] **Password Protected Video:** [https://www.loom.com/share/50e26e8aeb7940189dff5630f95ce1f4](https://www.loom.com/share/50e26e8aeb7940189dff5630f95ce1f4)
+
+  - _iOS Mobile Upload_ by Simon Curran
+  - Duration: 35 seconds
+  - Password: `seniorinfants2`
+  - Expected: mp4 format
+
+- [ ] **Embed URL with Split Audio/Video:** [https://www.loom.com/embed/ddcf1c1ad21f451ea7468b1e33917e4e](https://www.loom.com/embed/ddcf1c1ad21f451ea7468b1e33917e4e)
+  - _CF Reset User's Password_ by Aimee Heintz
+  - Duration: 181 seconds
+  - Expected: mp4 format with split HLS formats, video-only fixup
+
+## Community/Webpage Tests
+
+- [ ] **Community Page Video:** [https://www.loom.com/community/e1229802a8694a09909e8ba0fbb6d073-pg](https://www.loom.com/community/e1229802a8694a09909e8ba0fbb6d073-pg)
+
+  - _Rexie Jane Cimafranca - Founder's Presentation_ by Rexie Cimafranca
+  - Duration: 247 seconds
+  - Expected: mp4 format
+
+Extenral embed: https://christyprice.com/blog/how-i-use-loom-in-my-web-design-business?srsltid=AfmBOoqLI9F_t04CPQdQUlSK7OKVdF7KNRFpM5uDBosxw1X4JcxcGG0g
+
+Extrneal embed Video only stream: https://www.loom.com/embed/fde76b880065415ba4b841313990c7e4?sid=f9be84ae-2347-4bc9-b609-ea5bd86b4995
+
+Loom hannes 3rd format we missed: 
+
+https://www.loom.com/share/302f6b4112af48c1b9dea07df6efe702
+
+Multiple loom videos emnbedded on page:
+
+https://support.loom.com/hc/en-us/articles/360015714197-Getting-Started-Video-Tutorials

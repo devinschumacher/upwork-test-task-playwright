@@ -1,0 +1,195 @@
+# Loom Video Downloader Features
+
+A comprehensive Chrome extension for downloading Loom videos with advanced stream processing capabilities. Uses FastStream (HLS2MP4) and MediaBunny for in-browser processing of complex video formats and large files — no FFmpeg required.
+
+## 🎯 Core Features
+
+### Advanced Video Processing
+- **Multiple Format Support**: HLS/M3U8, DASH/MPD, WebM, and MP4 formats
+- **Stream Merging**: Combines separate audio and video streams into single MP4 files
+- **Segment Processing**: Handles fragmented video streams with batch downloading
+- **Container Conversion**: Converts WebM containers to MP4 without re-encoding
+- **Large File Handling**: Automatic chunking for files larger than 1.5GB
+
+### 🔍 Intelligent Detection System
+
+#### Multi-Method Video Discovery
+- **Direct URL Recognition**: Detects `loom.com/share/` and `loom.com/embed/` URLs
+- **Iframe Detection**: Automatically finds Loom embeds on third-party websites
+- **Dynamic Content Monitoring**: Mutation observer detects dynamically loaded videos
+- **Multiple Video Support**: Can process multiple Loom videos on a single page
+- **Video Element Scanning**: Looks for videos with `data-loom-video-id` attributes
+- **Script Content Analysis**: Parses JavaScript for embedded Loom video IDs
+
+#### Video ID Validation
+- **32-Character Hex IDs**: Recognizes Loom's specific video ID format
+- **Regex Pattern Matching**: Uses `/(?:share|embed)\/([a-f0-9]{32})/` for extraction
+- **Format Validation**: Ensures proper hexadecimal character validation
+
+### 🎥 Comprehensive Format Support
+
+#### Stream Types
+- **HLS Streams**: Master playlist parsing with segment downloading and merging
+- **DASH Streams**: MPD manifest processing with separate audio/video track handling
+- **Direct Files**: WebM and MP4 single-file downloads
+- **Split Streams**: Audio-only and video-only streams combined automatically
+- **Password-Protected Content**: Full support with password input interface
+
+#### Quality Management
+- **Automatic Selection**: Always selects highest available bitrate/quality
+- **Bitrate Detection**: Parses available quality options from stream manifests
+- **Resolution Preservation**: Maintains original video resolution and aspect ratio
+- **Codec Preservation**: Copy streams without quality-degrading re-encoding
+
+### 🔧 Advanced Technical Implementation
+
+#### Browser-Native Processing
+- **FastStream (HLS2MP4)**: TS segment to MP4 conversion in-browser
+- **MediaBunny**: MP4/WebM demux/mux and container conversion, in-browser
+- **Offscreen Processing**: Dedicated worker context for heavy operations
+- **Memory Management**: Automatic cleanup and garbage collection
+- **Batch Processing**: Handles large segment counts (100+ segments) efficiently
+- **Direct MP4 Output**: Produces standard MP4 files compatible with all players
+
+#### Performance Optimizations
+- **Chunked Downloads**: Progressive download for large files with memory optimization
+- **Segment Batching**: Groups video segments for efficient processing
+- **Throttled Operations**: Performance-optimized DOM monitoring and API calls
+- **Resource Cleanup**: Proper disposal of temporary files and memory allocations
+
+### 🔒 Authentication & Security
+
+#### Comprehensive License System
+- **Gumroad Integration**: Validates purchases against official Gumroad product keys
+- **Email Verification**: Dual authentication with email and license key requirement
+- **Worker API Validation**: Secure remote verification via Cloudflare Workers
+- **Persistent Storage**: Maintains activation state across browser sessions
+- **Feature Gating**: All download functionality requires valid license activation
+
+#### Content Access Management
+- **Password Protection**: Full support for password-protected Loom videos
+- **Session Handling**: Maintains proper authentication context with Loom's servers
+- **Cookie Management**: Leverages browser cookies for authorized content access
+- **Error Recovery**: Handles authentication failures with clear user feedback
+
+### 🖥️ User Interface Features
+
+#### Extension Popup
+- **Video Thumbnail Display**: Shows video preview with intelligent placeholder fallback
+- **Comprehensive Metadata**: Title, owner, resolution, duration, and description display
+- **Real-time Progress**: Download progress with percentage, speed, and time remaining
+- **Cancel Functionality**: Ability to stop downloads in progress with proper cleanup
+- **Password Input**: Dedicated interface for password-protected video access
+- **Help System**: Contextual help text with automatic hide/show functionality
+- **Status Management**: Clear loading, success, and error state indicators
+
+#### Advanced UI Features
+- **Embed Detection Notifications**: Alerts when Loom content is found on pages
+- **Download State Persistence**: Maintains progress across popup sessions
+- **Multi-video Support**: Can display and manage multiple detected videos
+- **Responsive Design**: Adapts to different content types and screen sizes
+
+### 🌐 Platform Integration
+
+#### Supported Loom Platforms
+- **Share URLs**: `https://www.loom.com/share/[video-id]`
+- **Embed URLs**: `https://www.loom.com/embed/[video-id]`
+- **Community Pages**: `https://www.loom.com/community/`
+- **All Subdomains**: Works across `*.loom.com` domains
+- **Third-party Embeds**: Detects Loom videos embedded on external websites
+
+#### API Integration
+- **GraphQL API**: Uses Loom's official API for video metadata extraction
+- **Multiple Endpoints**: Handles both raw-url and transcoded-url API endpoints
+- **Fallback Systems**: Multiple API endpoint fallbacks for reliability
+- **Rate Limiting**: Respects API rate limits and implements proper delays
+
+### 📁 Download Management
+
+#### File Processing
+- **Smart Naming**: Generates descriptive filenames using video metadata
+- **Chrome Downloads API**: Native browser download integration
+- **Blob Processing**: Handles CORS-restricted content with blob conversion
+- **Progress Tracking**: Real-time monitoring of download status and speed
+- **Error Recovery**: Robust handling of network failures and retries
+
+#### Advanced Download Features
+- **Segmented Downloads**: Progressive downloading for streaming formats
+- **Memory Optimization**: Efficient handling of large video files
+- **Automatic Cleanup**: Removes temporary files and clears cache after completion
+- **Format Conversion**: On-the-fly conversion from streaming formats to standard MP4
+
+### 🚀 Content Script Capabilities
+
+#### Page Integration
+- **DOM Monitoring**: Real-time detection of new Loom content as pages load
+- **Throttled Checking**: Performance-optimized mutation observation
+- **Source Prioritization**: Prefers iframe embeds over other detection methods
+- **Cross-frame Detection**: Can detect videos in iframes and embedded contexts
+- **Dynamic Loading**: Handles single-page applications and dynamic content loading
+
+### 🔍 Testing & Quality Assurance
+
+#### Comprehensive Test Coverage
+- **Format Testing**: M3U8, WebM, MP4, and MPD format validation
+- **Password Protection**: Dedicated test cases with known passwords
+- **Audio/Video Sync**: Split stream merging validation
+- **Community Content**: Third-party hosted content testing
+- **Subtitle Handling**: JSON and VTT subtitle format detection (display only)
+- **External Embeds**: Cross-site embed functionality testing
+- **Error Scenarios**: Invalid IDs, deleted videos, and network timeout handling
+
+## ⚠️ Current Limitations
+
+### What's NOT Supported
+- **No Quality Selection UI**: Always downloads highest available quality (no user choice)
+- **No Subtitle Downloads**: Can detect subtitles but doesn't download caption files
+- **No Bulk Downloads**: Single video processing only (no batch/queue functionality)
+- **No Custom Download Location**: Uses browser's default download folder
+- **No Bandwidth Controls**: No download speed limiting or resume capabilities
+- **No Download History**: No persistent record of previously downloaded videos
+
+### Technical Constraints
+- **Chrome Extension Only**: No support for Firefox, Safari, or other browsers
+- **Memory Limitations**: Very large videos may fail due to browser memory constraints
+- **License Dependency**: All functionality requires valid paid license activation
+- **Loom Platform Only**: Does not work with other video platforms or services
+- **No FFmpeg Dependency**: All processing uses browser-native libraries
+
+### Processing Limitations
+- **Single Processing**: One video download/conversion at a time
+- **Memory Intensive**: Large video processing requires significant system memory
+- **No Resume**: Cannot resume interrupted downloads (must restart)
+- **Format Limitations**: Output limited to MP4 format (no format selection)
+
+## 🎯 Use Cases
+
+### Professional Applications
+- **Content Archival**: Download Loom recordings for long-term storage
+- **Offline Presentations**: Create local copies for offline viewing
+- **Training Materials**: Archive instructional Loom videos
+- **Meeting Records**: Download recorded meetings and presentations
+- **Educational Content**: Save educational Loom videos for classroom use
+
+### Technical Applications
+- **Quality Preservation**: Maintain original video quality without compression
+- **Format Standardization**: Convert various Loom formats to standard MP4
+- **Large File Management**: Handle enterprise-scale video content efficiently
+- **Cross-platform Compatibility**: Create files playable on any device/platform
+
+## 🚀 Technical Requirements
+
+### Browser Support
+- **Chrome/Chromium**: Primary and only supported browser platform
+- **Manifest V3**: Modern Chrome extension architecture
+- **WebAssembly**: Used by processing libraries where applicable
+- **Service Worker**: Background processing capabilities
+- **Offscreen Documents**: Dedicated processing context support
+
+### System Requirements
+- **Sufficient RAM**: Video processing requires adequate system memory
+- **Storage Space**: Local disk space for temporary processing and final files
+- **Stable Internet**: Reliable connection for segment downloading
+- **Modern Hardware**: Recent processor for efficient video processing
+
+This extension provides enterprise-grade Loom video downloading with sophisticated stream processing, making it ideal for professional content archival and offline video management.

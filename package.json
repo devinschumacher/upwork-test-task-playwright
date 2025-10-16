@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "acorn": "^8.15.0",
+    "acorn-loose": "^8.5.2",
+    "archiver": "^7.0.1",
+    "javascript-obfuscator": "^4.1.1"
+  }
+}

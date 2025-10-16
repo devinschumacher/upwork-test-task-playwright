@@ -1,0 +1,23 @@
+**CSP & Permissions Audit**
+
+- App: `loom-downloader`
+- Manifest: MV3
+
+**Current Permissions**
+- `downloads`, `activeTab`, `storage`, `tabs`, `scripting`, `offscreen`, `webNavigation`
+- Host permissions: Loom domains, CloudFront, Gumroad
+- CSP: extension pages `script-src 'self' 'wasm-unsafe-eval'`; sandbox includes `'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'`
+
+**Observed Usage (evidence)**
+- `webNavigation`: `background-enhanced.js` uses `chrome.webNavigation.getAllFrames`.
+- `offscreen`: created/closed in `background-enhanced.js`.
+- `scripting`, `tabs`, `storage`, `downloads`: used across popup/background.
+- Network: multiple `fetch()` calls to Loom GraphQL and media URLs.
+- No WebAssembly usage detected in extension pages.
+
+**Recommendations**
+- Remove: `activeTab` — redundant; `tabs` + content scripts suffice.
+- CSP: drop `'wasm-unsafe-eval'` from `extension_pages` (no wasm use), and remove `sandbox` CSP or at least drop `'unsafe-*'`.
+- Host permissions: current list appears scoped to Loom/CDNs; OK as-is; prune if any are truly unused.
+- Keep: `webNavigation`, `offscreen`, `scripting`, `tabs`, `downloads`, `storage`.
+
