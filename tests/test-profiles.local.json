@@ -1,0 +1,38 @@
+{
+  "profiles": [
+    {
+      "name": "default",
+      "partition": "persist:skool-default",
+      "startUrl": "",
+      "videoUrls": [],
+      "login": {
+        "emailEnv": "SKOOL_ASPINALL_EMAIL",
+        "passwordEnv": "SKOOL_ASPINALL_PASSWORD"
+      }
+    },
+    {
+      "name": "aspinall",
+      "partition": "persist:skool-aspinall",
+      "startUrl": "https://www.skool.com/theaspinallway/call-recording-80654e8d",
+      "videoUrls": [
+        "https://www.skool.com/theaspinallway/call-recording-80654e8d"
+      ],
+      "login": {
+        "emailEnv": "SKOOL_ASPINALL_EMAIL",
+        "passwordEnv": "SKOOL_ASPINALL_PASSWORD"
+      }
+    },
+    {
+      "name": "sta",
+      "partition": "persist:skool-sta",
+      "startUrl": "https://www.skool.com/sta-course-only-7909/classroom/564286fa?md=47957119e143413e97c4e3aee4bef816",
+      "videoUrls": [
+        "https://www.skool.com/sta-course-only-7909/classroom/564286fa?md=47957119e143413e97c4e3aee4bef816"
+      ],
+      "login": {
+        "emailEnv": "SKOOL_STA_EMAIL",
+        "passwordEnv": "SKOOL_STA_PASSWORD"
+      }
+    }
+  ]
+}

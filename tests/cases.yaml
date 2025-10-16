@@ -1,0 +1,1193 @@
+fields:
+  platform:
+    type: string
+    enum:
+      - skool.com
+      - udemy.com
+      - whop.com
+    optional: true
+  location:
+    type: string
+    optional: true
+
+cases:
+  
+  - id: loom-classroom-paid-ad-secrets
+    n: 1
+    notes: Loom embed inside Skool classroom page.
+    provider: loom
+    page: classroom
+    url: https://www.skool.com/paid-ad-secrets/classroom/77c8adf4?md=28ba2aebfabe4193a37926ad5560e228
+    status_manual: pass
+    status_e2e: pass
+    profile: default
+    platform: skool.com
+    methods:
+      - name: "DOM iframe + yt-dlp"
+        priority: 1
+        manual:
+        detect:
+          method: dom-iframe-src
+          selector: iframe[src*="loom.com/embed/"]
+          embedUrl: https://www.loom.com/embed/27fd950ed91c4fb98d3fbe7fe0c8cc5d
+        download:
+          tool: yt-dlp
+          command: >
+            yt-dlp -f http-transcoded
+            --remux-video mp4
+            --postprocessor-args "ffmpeg:-movflags +faststart"
+            --concurrent-fragments 10
+            --add-header "Referer: https://www.loom.com/"
+            "https://www.loom.com/embed/27fd950ed91c4fb98d3fbe7fe0c8cc5d"
+
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: loom-community-mini-ai-lead-accelerator
+    n: 2
+    notes:
+    provider: loom
+    page: community
+    url: https://www.skool.com/garretts-group-7439/add-3x-rev-to-your-business-use-this-mini-ai-lead-accelerator
+    status_manual: pass
+    status_e2e: pass
+    profile: default
+    platform: skool.com
+    methods:
+      - name: "DOM iframe + yt-dlp"
+        priority: 1
+        manual:
+        detect:
+          method: dom-iframe-src
+          selector: iframe[src*="loom.com/embed/"]
+          embedUrl: https://www.loom.com/embed/460c581b9e5844ff9899ddd5f5d535b0
+        download:
+          tool: yt-dlp
+          command: >
+            yt-dlp -f http-transcoded
+            --remux-video mp4
+            --postprocessor-args "ffmpeg:-movflags +faststart"
+            --add-header "Referer: https://www.loom.com/"
+            "https://www.loom.com/embed/460c581b9e5844ff9899ddd5f5d535b0"
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: false
+      hasVideo: true
+      ext: mp4
+  
+  - id: loom-about-insightai
+    n: 3
+    notes:
+    provider: loom
+    page: about
+    url: https://www.skool.com/insightai-academy-3338/about
+    status_manual: pass
+    status_e2e: pass
+    profile: default
+    platform: skool.com
+    methods:
+      - name: "DOM iframe + yt-dlp"
+        priority: 1
+        manual:
+        detect:
+          method: dom-iframe-src
+          selector: iframe[src*="loom.com/embed/"]
+          embedUrl: https://www.loom.com/embed/ba54004f8d124237a9c726e9f5f7a039
+        download:
+          tool: yt-dlp
+          command: >
+            yt-dlp -f http-transcoded
+            --remux-video mp4
+            --postprocessor-args "ffmpeg:-movflags +faststart"
+            --concurrent-fragments 10
+            --add-header "Referer: https://www.loom.com/"
+            "https://www.loom.com/embed/ba54004f8d124237a9c726e9f5f7a039"
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-about-aspinallway
+    n: 4
+    notes: "Two detection methods available"
+    provider: vimeo
+    page: about
+    url: https://www.skool.com/theaspinallway/about
+    status_manual: pass
+    status_e2e: pass
+    profile: aspinall
+    platform: skool.com
+    methods:
+      - name: "Network m3u8 + yt-dlp"
+        priority: 1
+        manual: https://gist.github.com/devinschumacher/8024bc4693d79aef641b2c281e45d6cb#file-method1-md
+        detect:
+          method: network-m3u8-capture
+          description: "Coax video playback to capture m3u8 URLs from network requests"
+          expectedUrls:
+            - pattern: "vimeocdn.com.*\\.m3u8"
+            - pattern: "akamaized.net.*playlist\\.m3u8"
+        download:
+          tool: yt-dlp
+          recipe: vimeo-m3u8-ytdlp
+          command: |
+            yt-dlp --referer "https://player.vimeo.com/" \
+              -f "bv*+ba/best" \
+              --merge-output-format mp4 \
+              --remux-video mp4 \
+              --postprocessor-args "ffmpeg:-movflags +faststart" \
+              "M3U8_URL"
+      - name: "DOM iframe + streamlink"
+        priority: 2
+        manual: https://gist.github.com/devinschumacher/8024bc4693d79aef641b2c281e45d6cb#file-method2-md
+        detect:
+          method: dom-iframe-src
+          selector: iframe[src*="player.vimeo.com/"]
+          embedUrl: https://player.vimeo.com/video/1006630312?h=495321ce2b&title=0&byline=0&portrait=0&autoplay=1&autopause=0&app_id=122963
+        download:
+          tool: streamlink, ffmpeg
+          recipe: vimeo-hls-streamlink
+          command: streamlink -O "https://player.vimeo.com/video/1006630312?h=495321ce2b&title=0&byline=0&portrait=0&autoplay=1&autopause=0&app_id=122963" best | ffmpeg -i pipe:0 -c copy -movflags +faststart ~/Desktop/vimeo.mp4
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: wistia-classroom-blueprint
+    n: 7
+    notes:
+    provider: wistia
+    page: classroom
+    url: https://www.skool.com/the-blueprint-training/classroom/50c1bb36?md=40cc37d92f44450daceb4a47dbb1bf87
+    status_manual: pass
+    status_e2e: fail
+    profile: default
+    platform: skool.com
+    methods: 
+      - name:  "wistia fast.wistia.com m3u8 embed url"
+        priority: 1
+        manual:
+        detect:
+          method: network requests m3u8
+          description: This is the “media manifest” served from Wistia’s embed API. It usually points to a master playlist with multiple renditions (different resolutions/bitrates). yt-dlp understands this URL and can pick the best quality automatically. If you want a reliable single link per video, this is usually the one to use.
+          expectedUrls:
+            - https://embed-cloudfront.wistia.com/deliveries/79df4a9a83378bbf1e50c593f6015aafe72446a3.m3u8
+        download:
+          tool: yt-dlp
+          recipe: |
+            yt-dlp -f best \
+              --no-playlist \
+              --concurrent-fragments 16 \
+              --remux-video mp4 \
+              --postprocessor-args "ffmpeg:-movflags +faststart" \
+              --add-header "Referer:https://WHERE_YOU_GOT_IT/" \
+              "https://embed-cloudfront.wistia.com/deliveries/79df4a9a83378bbf1e50c593f6015aafe72446a3.m3u8"
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: youtube-community-blueprint-post
+    n: 9
+    notes:
+    provider: youtube
+    page: community
+    url: https://www.skool.com/the-blueprint-training/this-equation-scales-meta-ad-campaigns?p=e3505f46
+    status_manual: pass
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: youtube-about-blueprint
+    n: 10
+    notes: YouTube embed download with multi-command fallbacks
+    provider: youtube
+    page: about
+    url: https://www.skool.com/the-blueprint-training/about
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name: "DOM iframe + yt-dlp cascade"
+        priority: 1
+        manual: https://gist.github.com/devinschumacher/73bca8b4c4554e0a295be8d175b2ac77
+        detect:
+          method: multi-fallback commands
+          selector: iframe[src*="youtube.com/embed/"]
+          embedUrl: https://www.youtube.com/embed/S-mow-gu2XA
+        download:
+          tool: yt-dlp
+          command: >
+            VIDEO_URL="https://www.youtube.com/watch?v=VIDEO_URL"; \
+              yt-dlp -N 16 -f "bestvideo*+bestaudio/best" \
+                --remux-video mkv "$VIDEO_URL" \
+              || yt-dlp -N 16 -f "bv*+ba/best" \
+                --http-chunk-size 10M --retries 20 --fragment-retries 100 --force-ipv4 \
+                --remux-video mkv "$VIDEO_URL" \
+              || yt-dlp -N 16 -f "bv*[protocol=m3u8]+ba[protocol=m3u8]/best" \
+                --hls-prefer-native --retries 20 --fragment-retries 100 \
+                --remux-video mkv "$VIDEO_URL" \
+              || yt-dlp -N 16 -f "bv*[ext=mp4][vcodec*=avc1]+ba[ext=m4a]/best[ext=mp4]" \
+                --merge-output-format mp4 "$VIDEO_URL" \
+              || yt-dlp -f "bv*+ba/best" \
+                --downloader aria2c \
+                --downloader-args "aria2c:-x 16 -s 16 -k 1M --max-tries=0 --retry-wait=5" \
+                --merge-output-format mp4 "$VIDEO_URL"
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  
+  - id: skool-classroom-wholesaling
+    n: 11
+    notes: ".m3u8 stream, hosted at fastly"
+    provider: skool
+    page: classroom
+    url: https://www.skool.com/wholesaling/classroom/3acfb08a?md=3ba3f0012b1444329eb78bf67d09a0ee
+    status_manual: pass
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name: "Network m3u8 + yt-dlp"
+        priority: 1
+        manual: https://gist.github.com/devinschumacher/9bd2da8c7b01dcc3acc367bb5f85a51f
+        detect:
+          method: network-m3u8-capture
+          description: "Capture Skool native HLS stream from Fastly CDN with multi fallbacks"
+          expectedUrls:
+            - pattern: "fastly.net.*\\.m3u8"
+            - pattern: "skool-user-uploads.*master\\.m3u8"
+        download:
+          tool: yt-dlp
+          recipe: skool-m3u8-ytdlp
+          command: >
+            VIDEO_URL='https://stream.video.skool.com/DsdzJ4yCk3y00EW2MEKubPX01lXnIAw001M86u5q5TzZz00.m3u8?token=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ2IiwiZXhwIjoxNzU5MTAwNTg3LCJraWQiOiJPVjIwMHZ6SWZuZFVCNHdXdTAxbDRjb0hrYTVQQUd3TlYwMEtZSkJrQkppVlFrIiwicGxheWJhY2tfcmVzdHJpY3Rpb25faWQiOiIzMDJ2dXNuVG1lbW1QSzllOUpMaWxaUmpnVkJ3T2hTNlVLdGkyWnhJS2V1WSIsInN1YiI6IkRzZHpKNHlDazN5MDBFVzJNRUt1YlBYMDFsWG5JQXcwMDFNODZ1NXE1VHpaejAwIn0.t3RDhopUU2FwgayBuZ7Y52HUMAcEOM2RcWCF6_Je5W1osyPjgHDFlSAiQOtdlXixUcQ1ZzUnN2Ww2TsSKCN6_wFhPf9RtpgzzzNyr_bNhG_sjaj4hQBQzKsWwN7A7u2a1Af0hSgWQ6_Txcso9KYQgXk5i7rAKUywP5PBqi1NZlnFI6q0EM312l6ebTfp9n-ICzCu0bEIIKfLCFY17Tcm67wEjbBxvznYpaYbOx7LKB9xjguM5BJREyFiwCZDIVKxIuVSahvnmkCErYrYidJzYkHi1Lw0oY6VigW-bPvfhygzwlx3rUxwdpLYOie_HhX26ib1ujrRf4Lwe89pPAM1nA&CMCD=cid%3D%22DsdzJ4yCk3y00EW2MEKubPX01lXnIAw001M86u5q5TzZz00%22%2Csid%3D%22892678fc-4137-4f1c-817a-55a38d4f3bab%22'
+
+            ( yt-dlp -N 16 -f best --hls-prefer-native \
+                --referer 'https://skool.com' \
+                --add-header 'Origin: https://skool.com' \
+                --add-header 'User-Agent: Mozilla/5.0' \
+                --remux-video mp4 --merge-output-format mp4 \
+                --postprocessor-args "ffmpeg:-movflags +faststart" \
+                -o "%(title).200B.%(ext)s" "$VIDEO_URL" ) || \
+
+            ( yt-dlp -N 16 -f best --hls-prefer-native \
+                --referer 'https://www.skool.com' \
+                --add-header 'Origin: https://www.skool.com' \
+                --add-header 'User-Agent: Mozilla/5.0' \
+                --remux-video mp4 --merge-output-format mp4 \
+                --postprocessor-args "ffmpeg:-movflags +faststart" \
+                -o "%(title).200B.%(ext)s" "$VIDEO_URL" ) || \
+
+            ( yt-dlp -N 16 -f best --hls-prefer-native \
+                --retries 20 --fragment-retries 100 \
+                --referer 'https://skool.com' \
+                --add-header 'Origin: https://skool.com' \
+                --add-header 'User-Agent: Mozilla/5.0' \
+                --remux-video mp4 --merge-output-format mp4 \
+                --postprocessor-args "ffmpeg:-movflags +faststart" \
+                -o "%(title).200B.%(ext)s" "$VIDEO_URL" ) || \
+
+            ( yt-dlp -N 16 -f best \
+                --downloader aria2c \
+                --downloader-args "aria2c:-x 16 -s 16 -k 1M --max-tries=0 --retry-wait=5" \
+                --referer 'https://skool.com' \
+                --add-header 'Origin: https://skool.com' \
+                --add-header 'User-Agent: Mozilla/5.0' \
+                --remux-video mp4 --merge-output-format mp4 \
+                --postprocessor-args "ffmpeg:-movflags +faststart" \
+                -o "skool_video.mp4" "$VIDEO_URL" )
+
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: skool-community-aspinallway-call-recording
+    n: 13
+    notes:
+    provider: skool
+    page: community
+    url: https://www.skool.com/theaspinallway/call-recording-80654e8d
+    status_manual: pass
+    status_e2e: pending
+    profile: aspinall
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: skool-classroom-sta-course
+    n: 14
+    notes:
+    provider: skool
+    page: classroom
+    url: https://www.skool.com/sta-course-only-7909/classroom/564286fa?md=47957119e143413e97c4e3aee4bef816
+    status_manual: pending
+    status_e2e: pending
+    profile: sta
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-unlisted-160743502
+    n: 15
+    notes: "Unlisted hash share page; Harrisville New Hampshire"
+    provider: vimeo
+    page: canonical
+    url: https://vimeo.com/160743502/abd0e13fb4
+    status_manual: pass
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-on-demand-20704
+    n: 16
+    notes: "On Demand catalog page"
+    provider: vimeo
+    page: on-demand
+    url: https://vimeo.com/ondemand/20704
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-review-996447483
+    n: 17
+    notes: "Review page with hash"
+    provider: vimeo
+    page: review
+    url: https://vimeo.com/user170863801/review/996447483/a316d6ed8d
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-event-4745644
+    n: 18
+    notes: "Archived live event"
+    provider: vimeo
+    page: event
+    url: https://vimeo.com/event/4745644
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-event-live-4768062
+    n: 19
+    notes: "Active live stream placeholder"
+    provider: vimeo
+    page: event
+    url: https://vimeo.com/event/4768062
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-embed-digital-uoregon
+    n: 20
+    notes: "Public embed on digital.uoregon.edu"
+    provider: vimeo
+    page: embed
+    url: https://digital.uoregon.edu/drupal/videos/vimeo
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    location: digital.uoregon.edu
+    platform: digital.uoregon.edu
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-embed-gtowizard
+    n: 21
+    notes: "Private embed on app.gtowizard.com"
+    provider: vimeo
+    page: embed
+    url: https://app.gtowizard.com/coaching?video_id=2f6e266f-90fe-422f-83dc-2147ff5a6d4e
+    status_manual: fail
+    status_e2e: pending
+    profile: default
+    location: app.gtowizard.com
+    platform: app.gtowizard.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-canonical-519981982
+    n: 22
+    notes: "Long-form canonical video page - 6.5hr video"
+    provider: vimeo
+    page: canonical
+    url: https://vimeo.com/519981982
+    status_manual: pass
+    status_e2e: skip # dont run this on e2e tests // it takes way too long
+    profile: default
+    platform: vimeo.com
+    methods:
+      - name: "DASH playlist.json + yt-dlp"
+        priority: 1
+        manual: https://gist.github.com/devinschumacher/8024bc4693d79aef641b2c281e45d6cb#file-method3-md
+        detect:
+          method: network-dash-capture
+          description: "Capture playlist.json and .m4s segments from network requests"
+          expectedUrls:
+            - pattern: "player.vimeo.com.*playlist\\.json"
+            - pattern: "\\.m4s"
+        download:
+          tool: yt-dlp
+          recipe: vimeo-dash-ytdlp
+          command: |
+            yt-dlp --referer "https://player.vimeo.com/video/519981982" \
+              -N 32 -S "codec:avc,res,ext" \
+              --merge-output-format mp4 --remux-video mp4 \
+              --postprocessor-args "ffmpeg:-movflags +faststart" \
+              "https://player.vimeo.com/video/519981982"
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: vimeo-password-shiatsuapos
+    n: 23
+    notes: "Password protected embed & bulk video downloads (password: CNVG_55_APOS2025!)"
+    provider: vimeo
+    page: embed
+    url: https://shiatsuapos.com/55-convegno-nazionale-apos
+    status_manual: pass
+    status_e2e: pending
+    profile: default
+    platform: shiatsuapos.com
+    methods:
+      - name: "Password-protected Vimeo embed with inline playerConfig"
+        priority: 1
+        manual: https://gist.github.com/devinschumacher/8024bc4693d79aef641b2c281e45d6cb#file-method4-md
+        detect:
+          method: dom-injection
+          selector: iframe[src*="player.vimeo.com/"]
+          description: "Password-protected video using inline playerConfig JSON (no manifest in network)"
+        download:
+          tool: yt-dlp
+          recipe: password-protected-vimeo
+          command: |
+            yt-dlp \
+              --video-password 'CNVG_55_APOS2025!' \
+              --referer 'https://shiatsuapos.com/55-convegno-nazionale-apos' \
+              -N 20 -S 'codec:avc,res,ext' \
+              --merge-output-format mp4 --remux-video mp4 \
+              --postprocessor-args "ffmpeg:-movflags +faststart" \
+              'https://player.vimeo.com/video/{video_id}'
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-password-youtubedl
+    n: 24
+    notes: "Password protected (password: youtube-dl)"
+    provider: vimeo
+    page: canonical
+    url: http://vimeo.com/68375962
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-standard-1101244533
+    n: 25
+    notes: "Standard Vimeo page"
+    provider: vimeo
+    page: canonical
+    url: https://vimeo.com/1101244533
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-embed-player-54469442
+    n: 26
+    notes: "Player embed URL"
+    provider: vimeo
+    page: embed
+    url: https://player.vimeo.com/video/54469442
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: player.vimeo.com
+    location: player.vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-channel-keypeele-75629013
+    n: 27
+    notes: "Channel video"
+    provider: vimeo
+    page: channel
+    url: http://vimeo.com/channels/keypeele/75629013
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-subtitles-76979871
+    n: 28
+    notes: "Video with subtitles"
+    provider: vimeo
+    page: canonical
+    url: http://vimeo.com/76979871
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: vimeo.com
+    location: vimeo.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: skool-classroom-valini-hls
+    n: 29
+    notes: "Skool classroom with 4h native HLS playback"
+    provider: skool
+    page: classroom
+    url: https://www.skool.com/acq/classroom/d4e8d279?md=ffddcc90d050472a9e36b7b7daa4e858
+    status_manual: pending
+    status_e2e: pending
+    profile: valini
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+  
+  - id: skool-classroom-cyfrowi-hls
+    n: 30
+    notes: "Skool classroom HLS variant (cyfrowi-tworcy)"
+    provider: skool
+    page: classroom
+    url: https://www.skool.com/cyfrowi-tworcy-pro/classroom/3a4c0404?md=276c8c626c1d48268160fbfb5599b8a1
+    status_manual: pending
+    status_e2e: pending
+    profile: cyfrowi
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: companion-progress-smoke
+    n: 31
+    notes: |
+      Manual smoke to confirm the companion progress column updates correctly.
+      Steps:
+        1. Launch Chrome or Chromium with `--remote-debugging-port` (see docs/TESTING.md).
+           Example: `open -na "Google Chrome" --args --remote-debugging-port=9222`
+        2. Run `cd serpcompanion && npm run dev-cycle`.
+        3. Load Bulk Media Downloader and navigate to the Loom classroom URL below.
+        4. Select detected media rows and click "Send to Companion".
+        5. Verify the Status column transitions (Queued → Downloading → Completed/Failed) and matches companion logs.
+    provider: loom
+    page: classroom
+    url: https://www.skool.com/paid-ad-secrets/classroom/77c8adf4?md=69a3c91b5d5b45cf873abbfe1bdb02e5
+    status: manual
+    profile: default
+    platform: skool.com
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-streamlink-remux
+    n: 32
+    notes: |
+      Manual recipe using streamlink + ffmpeg remux for Vimeo embeds.
+      Steps:
+        1. Launch Chromium (remote debugging) and run \
+           CHROME_REMOTE_PORT=9223 npm run dev-cycle --prefix serpcompanion
+        2. Visit https://player.vimeo.com/video/1056875977 or the Skool page embedding it.
+        3. Confirm the extension queues the video and captures the network manifest.
+        4. Run `streamlink https://player.vimeo.com/video/1056875977 best -o tmp.ts`.
+        5. Remux with `ffmpeg -y -i tmp.ts -c copy output.mp4`.
+        6. Record success/failure and note if additional headers/cookies were required.
+      Result: pass (public embed; no extra headers required, `ffmpeg -c copy` produced playable MP4).
+    provider: vimeo
+    page: player
+    url: https://player.vimeo.com/video/1056875977
+    status: pending
+    profile: default
+    platform: vimeo.com
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-community-serpdownloaders
+    n: 33
+    notes: Vimeo video in Skool community post
+    provider: vimeo
+    page: community
+    url: https://www.skool.com/serpdownloaders-2967/vimeo-in-community-post
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: loom-community-serpdownloaders
+    n: 34
+    notes: Loom video in Skool community post
+    provider: loom
+    page: community
+    url: https://www.skool.com/serpdownloaders-2967/loom-in-community-post
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: youtube-classroom-serpdownloaders
+    n: 35
+    notes: YouTube video in Skool classroom (all video types in one classroom)
+    provider: youtube
+    page: classroom
+    url: https://www.skool.com/serpdownloaders-2967/classroom/88efb015?md=274dbdf5ece5441c9eb2cede64bcffb6
+    status: pending
+    profile: default
+    platform: skool.com
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: loom-classroom-serpdownloaders
+    n: 36
+    notes: Loom video in Skool classroom (all video types in one classroom)
+    provider: loom
+    page: classroom
+    url: https://www.skool.com/serpdownloaders-2967/classroom/88efb015?md=1cfef26e8a2d4f8f8904cd6ab1f12729
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: wistia-classroom-serpdownloaders
+    n: 37
+    notes: Wistia video in Skool classroom (all video types in one classroom)
+    provider: wistia
+    page: classroom
+    url: https://www.skool.com/serpdownloaders-2967/classroom/88efb015?md=fb5e56757e8b469f9ba36c9da6dd4d8b
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: skool-classroom-serpdownloaders
+    n: 38
+    notes: Skool native video in classroom (all video types in one classroom)
+    provider: skool
+    page: classroom
+    url: https://www.skool.com/serpdownloaders-2967/classroom/88efb015?md=534badf917604a25a1a507c934da1d24
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: vimeo-classroom-serpdownloaders
+    n: 39
+    notes: Vimeo video in Skool classroom (all video types in one classroom)
+    provider: vimeo
+    page: classroom
+    url: https://www.skool.com/serpdownloaders-2967/classroom/88efb015?md=274dbdf5ece5441c9eb2cede64bcffb6
+    status_manual: pending
+    status_e2e: pending
+    profile: default
+    platform: skool.com
+    methods:
+      - name:
+        priority:
+        manual:
+        detect:
+          method:
+          selector:
+          embedUrl:
+        download:
+          tool:
+          command:
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: mux-whop-stream
+    n: 40
+    notes: "Tokenized Mux stream served on Whop"
+    provider: mux
+    page: course
+    url: https://whop.com/joined/serp-133b/courses-mf1HwtRdTXT6oY/app/
+    status: pass
+    profile: default
+    platform: whop.com
+    methods:
+      - name: "Network stream.mux.com + yt-dlp"
+        priority: 1
+        detect:
+          method: network-m3u8-capture
+          description: "Capture tokenized Mux HLS manifest from network"
+          expectedUrls:
+            - "https://stream.mux.com/FbbZqETFnfYBwZ4Gc029tyZQ4J02MIEb9Gm8FySiH1u7k.m3u8?token=eyJhbGciOiJSUzI1NiJ9.eyJraWQiOiJJbEpXWGlLcTAxR2ZBdnpoMWpRaDkyV3BDQzFQY0ZMcnF4eDAxeUUwMk5pOFpNIiwic3ViIjoiRmJiWnFFVEZuZllCd1o0R2MwMjl0eVpRNEowMk1JRWI5R204RnlTaUgxdTdrIiwiYXVkIjoidiIsImV4cCI6MTc1OTU5MDg0OH0.GilVlyTo7SFjiFvpBm3ZQ_HJmyjtnlFvyBk0Oy_Z59DTK_mZggxO1SgGKE5L39gCoOFm6EHRfIjQScTrnpQHhNocZOC8q6RVcIoiC5IJ9tFgBnYNFjkKfS03Sgmao6cUbdJEGL2iLZ8bs3QmrEx4kmEqnkMVgaTKGrHFoN37cP76Hn1fP4jPkzuywSXTb1vniOb0ASqzg2KqP_PvMZcO81doK2oQUZdgn6RT5RjtWJC7pzcR9kq0if7vksNsRuQf8dlgmWNErXwLyYKPVGI9-EvhAvyotzJtU8sLffpYKx43SZZoovzqIzgCMpRW-J0hQJ07qLUEtASsQ-MyY_KHLA"
+          pattern: "stream.mux.com; .m3u8"
+        download:
+          tool: yt-dlp
+          command: |
+            yt-dlp \
+              --no-playlist \
+              --concurrent-fragments 16 \
+              -f "bv*+ba/b" \
+              --merge-output-format mp4 \
+              --postprocessor-args "ffmpeg:-movflags +faststart" \
+              -o "video.mp4" \
+              "M3U8_URL"
+    expects:
+      detect: true
+      inspect: true
+      download: true
+      hasAudio: true
+      hasVideo: true
+      ext: mp4
+
+  - id: tiktok
+    n: 41
+    notes: "Tiktok video"
+    provider: Tiktok
+    page: post
+    url: https://www.tiktok.com/@dvnschmchr/video/7419077370918751530
+    status: pending
+    profile: default
+    platform: tiktok.com
+    methods:
+      - name: 
+        priority:
+        detect:
+          method: 
+          description:
+          expectedUrls:
+          pattern: 
+        download:
+          tool: 
+          command:
+    expects:
+      detect:
+      inspect:
+      download:
+      hasAudio:
+      hasVideo:

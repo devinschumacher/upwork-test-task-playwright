@@ -1,0 +1,9 @@
+[
+  {
+    "id": "archive-big-buck-bunny",
+    "url": "https://archive.org/details/BigBuckBunny_328",
+    "selectVariant": "512Kb MPEG4",
+    "minVariantCount": 3,
+    "requireAudio": true
+  }
+]
